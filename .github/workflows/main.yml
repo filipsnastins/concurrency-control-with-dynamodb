@@ -11,6 +11,7 @@ jobs:
     env:
       POETRY_VIRTUALENVS_CREATE: false
       TESTCONTAINER_DOCKER_NETWORK: testcontainers
+      PYTHONPATH: src:$PYTHONPATH
       DOCKER_BUILDKIT: 1
 
     steps:
