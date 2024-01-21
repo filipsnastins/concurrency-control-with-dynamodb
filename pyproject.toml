@@ -1,12 +1,14 @@
 [tool.poetry]
-name = "database-locks-dynamodb"
-version = "0.1.0"
+name = "src"
+version = "0.0.0"
 description = ""
 authors = ["Filips Nastins <nastinsfilips@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+aiobotocore = "^2.11.0"
+types-aiobotocore = "^2.11.0"
 
 [tool.poetry.group.dev.dependencies]
 autoflake = "^2.2.1"
@@ -75,6 +77,7 @@ exclude_dirs = [
 ]
 
 [tool.flake8]
+ignore = ["E501"]
 literal-inline-quotes = "double"
 literal-multiline-quotes = "double"
 exclude = [
@@ -110,6 +113,9 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 log_level = "INFO"
+filterwarnings = [
+    'ignore:datetime\.datetime\.utcnow\(\) is deprecated and scheduled for removal:DeprecationWarning',
+]
 env = [
     # Set dummy AWS credentials so that we don't accidentally mutate real infrastructure
     "AWS_REGION=us-east-1",
