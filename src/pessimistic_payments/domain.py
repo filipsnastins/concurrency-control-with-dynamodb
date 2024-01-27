@@ -13,7 +13,7 @@ class PaymentIntentStateError(Exception):
 
 
 class PaymentIntentState(StrEnum):
-    PENDING = "PENDING"
+    CREATED = "CREATED"
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
 
@@ -30,14 +30,14 @@ class PaymentIntent:
     def create(customer_id: str, amount: int, currency: str) -> "PaymentIntent":
         return PaymentIntent(
             id=str(uuid.uuid4()),
-            state=PaymentIntentState.PENDING,
+            state=PaymentIntentState.CREATED,
             customer_id=customer_id,
             amount=amount,
             currency=currency,
         )
 
     async def charge(self, payment_gateway: PaymentGateway) -> None:
-        if self.state != PaymentIntentState.PENDING:
+        if self.state != PaymentIntentState.CREATED:
             raise PaymentIntentStateError(f"PaymentIntent is not in a chargeable state: {self.state}")
         try:
             await payment_gateway.charge(self.id, self.amount, self.currency)
