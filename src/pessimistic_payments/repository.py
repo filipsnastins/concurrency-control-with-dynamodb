@@ -3,7 +3,7 @@ from typing import AsyncGenerator, Protocol
 
 from types_aiobotocore_dynamodb import DynamoDBClient
 
-from database_locks.pessimistic_lock import DynamoDBPessimisticLock
+from database_locks import DynamoDBPessimisticLock
 
 from .domain import PaymentIntent, PaymentIntentNotFoundError, PaymentIntentState
 
