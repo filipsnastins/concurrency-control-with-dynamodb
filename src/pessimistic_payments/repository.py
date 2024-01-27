@@ -35,11 +35,12 @@ class DynamoDBPaymentIntentRepository:
 
     @asynccontextmanager
     async def lock(self, payment_intent: PaymentIntent) -> AsyncGenerator[None, None]:
-        key = {
-            "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
-            "SK": {"S": "PAYMENT_INTENT"},
-        }
-        async with self._lock(key):
+        async with self._lock(
+            {
+                "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
+                "SK": {"S": "PAYMENT_INTENT"},
+            }
+        ):
             yield
 
     async def get(self, id: str) -> PaymentIntent | None:

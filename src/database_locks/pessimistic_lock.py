@@ -1,6 +1,6 @@
 import datetime
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Mapping
+from typing import AsyncGenerator
 
 from types_aiobotocore_dynamodb import DynamoDBClient
 from types_aiobotocore_dynamodb.type_defs import UniversalAttributeValueTypeDef
@@ -31,7 +31,7 @@ class DynamoDBPessimisticLock:
         self._lock_attribute = lock_attribute
 
     @asynccontextmanager
-    async def __call__(self, key: Mapping[str, UniversalAttributeValueTypeDef]) -> AsyncGenerator[None, None]:
+    async def __call__(self, key: dict[str, UniversalAttributeValueTypeDef]) -> AsyncGenerator[None, None]:
         lock_acquired = False
         try:
             await self._acquire_lock(key)
@@ -41,7 +41,7 @@ class DynamoDBPessimisticLock:
             if lock_acquired:
                 await self._release_lock(key)
 
-    async def _acquire_lock(self, key: Mapping[str, UniversalAttributeValueTypeDef]) -> None:
+    async def _acquire_lock(self, key: dict[str, UniversalAttributeValueTypeDef]) -> None:
         try:
             await self._client.update_item(
                 TableName=self._table_name,
@@ -57,7 +57,7 @@ class DynamoDBPessimisticLock:
         except self._client.exceptions.ConditionalCheckFailedException as e:
             raise PessimisticLockAcquisitionError(key) from e
 
-    async def _release_lock(self, key: Mapping[str, UniversalAttributeValueTypeDef]) -> None:
+    async def _release_lock(self, key: dict[str, UniversalAttributeValueTypeDef]) -> None:
         try:
             await self._client.update_item(
                 TableName=self._table_name,
@@ -69,7 +69,7 @@ class DynamoDBPessimisticLock:
         except self._client.exceptions.ConditionalCheckFailedException as e:
             raise PessimisticLockItemNotFoundError(key) from e
 
-    def _item_exists_expression(self, key: Mapping[str, UniversalAttributeValueTypeDef]) -> str:
+    def _item_exists_expression(self, key: dict[str, UniversalAttributeValueTypeDef]) -> str:
         return " AND ".join(f"attribute_exists({v})" for v in key.keys()).removesuffix(" AND ")
 
     def _lock_timeout_attribute_value(self) -> dict:
