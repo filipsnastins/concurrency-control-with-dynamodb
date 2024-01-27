@@ -11,16 +11,16 @@ from .domain import PaymentIntent, PaymentIntentNotFoundError, PaymentIntentStat
 class PaymentIntentRepository(Protocol):
     @asynccontextmanager
     async def lock(self, payment_intent: PaymentIntent) -> AsyncGenerator[None, None]:
-        yield None
+        yield None  # pragma: no cover
 
     async def get(self, id: str) -> PaymentIntent | None:
-        ...
+        ...  # pragma: no cover
 
     async def create(self, payment_intent: PaymentIntent) -> None:
-        ...
+        ...  # pragma: no cover
 
     async def update(self, payment_intent: PaymentIntent) -> None:
-        ...
+        ...  # pragma: no cover
 
 
 class PaymentIntentIdentifierCollisionError(Exception):

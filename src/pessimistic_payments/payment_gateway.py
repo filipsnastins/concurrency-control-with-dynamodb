@@ -4,7 +4,7 @@ from typing import Protocol
 
 class PaymentGateway(Protocol):
     async def charge(self, payment_intent_id: str, amount: int, currency: str) -> None:
-        ...
+        ...  # pragma: no cover
 
 
 @dataclass
