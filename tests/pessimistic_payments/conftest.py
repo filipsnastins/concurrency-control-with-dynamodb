@@ -1,3 +1,4 @@
+import uuid
 from typing import AsyncGenerator
 
 import pytest_asyncio
@@ -11,8 +12,8 @@ from pessimistic_payments.repository import DynamoDBPaymentIntentRepository
 async def dynamodb_table_name(
     localstack_dynamodb_client: DynamoDBClient,
 ) -> AsyncGenerator[str, None]:
-    table_name = "autotest-pessimistic-payments"
-    await create_table(localstack_dynamodb_client, table_name)
+    table_name = f"autotest-pessimistic-payments-{uuid.uuid4()}"
+    await create_table(localstack_dynamodb_client, table_name, with_range_key=True)
     yield table_name
     await localstack_dynamodb_client.delete_table(TableName=table_name)
 

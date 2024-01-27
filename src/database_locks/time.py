@@ -1,5 +1,5 @@
 import datetime
 
 
-def now() -> str:
-    return datetime.datetime.now(tz=datetime.UTC).isoformat()
+def now() -> datetime.datetime:
+    return datetime.datetime.now(tz=datetime.UTC)
