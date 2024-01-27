@@ -20,11 +20,11 @@ class PaymentIntentState(StrEnum):
 
 class PaymentIntent:
     def __init__(self, id: str, state: PaymentIntentState, customer_id: str, amount: int, currency: str) -> None:
-        self.id = id
-        self.state = state
-        self.customer_id = customer_id
-        self.amount = amount
-        self.currency = currency
+        self._id = id
+        self._state = state
+        self._customer_id = customer_id
+        self._amount = amount
+        self._currency = currency
 
     @staticmethod
     def create(customer_id: str, amount: int, currency: str) -> "PaymentIntent":
@@ -36,12 +36,43 @@ class PaymentIntent:
             currency=currency,
         )
 
+    @property
+    def id(self) -> str:
+        return self._id
+
+    @property
+    def state(self) -> PaymentIntentState:
+        return self._state
+
+    @property
+    def customer_id(self) -> str:
+        return self._customer_id
+
+    @property
+    def amount(self) -> int:
+        return self._amount
+
+    @property
+    def currency(self) -> str:
+        return self._currency
+
     async def charge(self, payment_gateway: PaymentGateway) -> None:
-        if self.state != PaymentIntentState.CREATED:
-            raise PaymentIntentStateError(f"PaymentIntent is not in a chargeable state: {self.state}")
+        if self._state != PaymentIntentState.CREATED:
+            raise PaymentIntentStateError(f"PaymentIntent is not in a chargeable state: {self._state}")
         try:
-            await payment_gateway.charge(self.id, self.amount, self.currency)
+            await payment_gateway.charge(self._id, self._amount, self._currency)
         except PaymentGatewayError:
-            self.state = PaymentIntentState.FAILED
+            self._state = PaymentIntentState.FAILED
         else:
-            self.state = PaymentIntentState.SUCCEEDED
+            self._state = PaymentIntentState.SUCCEEDED
+
+    def __eq__(self, __value: object) -> bool:
+        if not isinstance(__value, PaymentIntent):
+            return False
+        return (
+            self._id == __value._id
+            and self._state == __value._state
+            and self._customer_id == __value._customer_id
+            and self._amount == __value._amount
+            and self._currency == __value._currency
+        )
