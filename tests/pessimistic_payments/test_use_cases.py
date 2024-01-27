@@ -11,7 +11,7 @@ from pessimistic_payments.use_cases import charge_payment_intent, create_payment
 
 @pytest.mark.asyncio()
 async def test_payment_intent_charge_succeeded(repo: PaymentIntentRepository) -> None:
-    payment_intent = await create_payment_intent("customer_123456", 100, "USD", repo)
+    payment_intent = await create_payment_intent("customer-123456", 100, "USD", repo)
     payment_gw_mock = Mock(spec_set=PaymentGateway)
 
     await charge_payment_intent(payment_intent.id, repo, payment_gw_mock)
@@ -22,7 +22,7 @@ async def test_payment_intent_charge_succeeded(repo: PaymentIntentRepository) ->
 
 @pytest.mark.asyncio()
 async def test_payment_intent_charge_failed(repo: PaymentIntentRepository) -> None:
-    payment_intent = await create_payment_intent("customer_123456", 100, "USD", repo)
+    payment_intent = await create_payment_intent("customer-123456", 100, "USD", repo)
     payment_gw_mock = Mock(spec_set=PaymentGateway)
     payment_gw_mock.charge.side_effect = PaymentGatewayError(
         PaymentGatewayErrorResponse(
@@ -39,7 +39,7 @@ async def test_payment_intent_charge_failed(repo: PaymentIntentRepository) -> No
 
 @pytest.mark.asyncio()
 async def test_succeeded_payment_intent_cannot_be_charged_again(repo: PaymentIntentRepository) -> None:
-    payment_intent = await create_payment_intent("customer_123456", 100, "USD", repo)
+    payment_intent = await create_payment_intent("customer-123456", 100, "USD", repo)
     payment_gw_mock = Mock(spec_set=PaymentGateway)
     await charge_payment_intent(payment_intent.id, repo, payment_gw_mock)
 
@@ -53,7 +53,7 @@ async def test_succeeded_payment_intent_cannot_be_charged_again(repo: PaymentInt
 
 @pytest.mark.asyncio()
 async def test_payment_intent_charged_once(repo: PaymentIntentRepository) -> None:
-    payment_intent = await create_payment_intent("customer_123456", 100, "USD", repo)
+    payment_intent = await create_payment_intent("customer-123456", 100, "USD", repo)
     payment_gw_mock = Mock(spec_set=PaymentGateway)
 
     await asyncio.wait(
