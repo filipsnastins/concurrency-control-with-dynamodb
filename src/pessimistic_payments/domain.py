@@ -65,14 +65,3 @@ class PaymentIntent:
             self._state = PaymentIntentState.FAILED
         else:
             self._state = PaymentIntentState.SUCCEEDED
-
-    def __eq__(self, __value: object) -> bool:
-        if not isinstance(__value, PaymentIntent):
-            return False
-        return (
-            self._id == __value._id
-            and self._state == __value._state
-            and self._customer_id == __value._customer_id
-            and self._amount == __value._amount
-            and self._currency == __value._currency
-        )
