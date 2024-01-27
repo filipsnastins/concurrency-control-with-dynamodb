@@ -1,16 +1,13 @@
-import datetime
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Mapping
 
 from types_aiobotocore_dynamodb import DynamoDBClient
 from types_aiobotocore_dynamodb.type_defs import UniversalAttributeValueTypeDef
 
+from .time import now
+
 
 class PessimisticLockError(Exception):
-    pass
-
-
-class DynamoDBItemNotFoundError(Exception):
     pass
 
 
@@ -25,39 +22,24 @@ class DynamoDBPessimisticLock:
 
     @asynccontextmanager
     async def __call__(self, key: DynamoDBKeyType) -> AsyncGenerator[None, None]:
-        await self._acquire_lock(key)
-        yield
-        await self._release_lock(key)
+        try:
+            await self._acquire_lock(key)
+            yield
+        finally:
+            await self._release_lock(key)
 
     async def _acquire_lock(self, key: DynamoDBKeyType) -> None:
         try:
-            await self._client.transact_write_items(
-                TransactItems=[
-                    {
-                        "ConditionCheck": {
-                            "TableName": self._table_name,
-                            "Key": key,
-                            "ConditionExpression": self._item_exists_condition_expression(key),
-                        },
-                    },
-                    {
-                        "Update": {
-                            "TableName": self._table_name,
-                            "Key": key,
-                            "UpdateExpression": "SET #LockAttribute = :LockAttribute",
-                            "ExpressionAttributeNames": {"#LockAttribute": self._lock_attribute},
-                            "ExpressionAttributeValues": {":LockAttribute": {"S": self._now()}},
-                            "ConditionExpression": "attribute_not_exists(#LockAttribute)",
-                        }
-                    },
-                ]
+            await self._client.update_item(
+                TableName=self._table_name,
+                Key=key,
+                UpdateExpression="SET #LockAttribute = :LockAttribute",
+                ExpressionAttributeNames={"#LockAttribute": self._lock_attribute},
+                ExpressionAttributeValues={":LockAttribute": {"S": now()}},
+                ConditionExpression=f"attribute_not_exists(#LockAttribute) AND {self._item_exists_condition_expression(key)}",
             )
-        except self._client.exceptions.TransactionCanceledException as e:
-            if e.response["CancellationReasons"][0]["Code"] == "ConditionalCheckFailed":
-                raise DynamoDBItemNotFoundError(key) from e
-            if e.response["CancellationReasons"][1]["Code"] == "ConditionalCheckFailed":
-                raise PessimisticLockError(key) from e
-            raise
+        except self._client.exceptions.ConditionalCheckFailedException:
+            raise PessimisticLockError(key)
 
     async def _release_lock(self, key: DynamoDBKeyType) -> None:
         try:
@@ -69,10 +51,7 @@ class DynamoDBPessimisticLock:
                 ConditionExpression=self._item_exists_condition_expression(key),
             )
         except self._client.exceptions.ConditionalCheckFailedException as e:
-            raise DynamoDBItemNotFoundError(key) from e
-
-    def _now(self) -> str:
-        return datetime.datetime.now(tz=datetime.UTC).isoformat()
+            raise PessimisticLockError(key) from e
 
     def _item_exists_condition_expression(self, key: DynamoDBKeyType) -> str:
         return " AND ".join(f"attribute_exists({v})" for v in key.keys())
