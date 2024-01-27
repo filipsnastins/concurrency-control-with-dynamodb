@@ -18,9 +18,9 @@ async def test_get_not_existing_payment_intent(repo: DynamoDBPaymentIntentReposi
 @pytest.mark.asyncio()
 async def test_create_and_get_payment_intent(repo: DynamoDBPaymentIntentRepository) -> None:
     payment_intent = PaymentIntent(
-        id="pi-123456",
+        id="pi_123456",
         state=PaymentIntentState.CREATED,
-        customer_id="customer-123456",
+        customer_id="cust_123456",
         amount=100,
         currency="USD",
         version=0,
@@ -30,9 +30,9 @@ async def test_create_and_get_payment_intent(repo: DynamoDBPaymentIntentReposito
 
     db_payment_intent = await repo.get(payment_intent.id)
     assert db_payment_intent
-    assert db_payment_intent.id == "pi-123456"
+    assert db_payment_intent.id == "pi_123456"
     assert db_payment_intent.state == PaymentIntentState.CREATED
-    assert db_payment_intent.customer_id == "customer-123456"
+    assert db_payment_intent.customer_id == "cust_123456"
     assert db_payment_intent.amount == 100
     assert db_payment_intent.currency == "USD"
     assert db_payment_intent.version == 0
@@ -41,9 +41,9 @@ async def test_create_and_get_payment_intent(repo: DynamoDBPaymentIntentReposito
 @pytest.mark.asyncio()
 async def test_should_raise_on_already_existing_payment_intent_id(repo: DynamoDBPaymentIntentRepository) -> None:
     payment_intent = PaymentIntent(
-        id="pi-123456",
+        id="pi_123456",
         state=PaymentIntentState.CREATED,
-        customer_id="customer-123456",
+        customer_id="cust_123456",
         amount=100,
         currency="USD",
         version=0,
@@ -58,9 +58,9 @@ async def test_should_raise_on_already_existing_payment_intent_id(repo: DynamoDB
 @pytest.mark.asyncio()
 async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> None:
     payment_intent = PaymentIntent(
-        id="pi-123456",
+        id="pi_123456",
         state=PaymentIntentState.CREATED,
-        customer_id="customer-123456",
+        customer_id="cust_123456",
         amount=100,
         currency="USD",
         version=0,
@@ -70,7 +70,7 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
     payment_intent = PaymentIntent(
         id=payment_intent.id,
         state=PaymentIntentState.CHARGED,
-        customer_id="customer-999999",
+        customer_id="cust_999999",
         amount=1481850,
         currency="JPY",
         version=0,
@@ -79,9 +79,9 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
 
     db_payment_intent = await repo.get(payment_intent.id)
     assert db_payment_intent
-    assert db_payment_intent.id == "pi-123456"
+    assert db_payment_intent.id == "pi_123456"
     assert db_payment_intent.state == PaymentIntentState.CHARGED
-    assert db_payment_intent.customer_id == "customer-123456"
+    assert db_payment_intent.customer_id == "cust_123456"
     assert db_payment_intent.amount == 1481850
     assert db_payment_intent.currency == "USD"
     assert db_payment_intent.version == 1
@@ -91,9 +91,9 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
 async def test_update_payment_intent_fails_on_optimistic_lock_error(repo: DynamoDBPaymentIntentRepository) -> None:
     # Arrange
     payment_intent = PaymentIntent(
-        id="pi-123456",
+        id="pi_123456",
         state=PaymentIntentState.CREATED,
-        customer_id="customer-123456",
+        customer_id="cust_123456",
         amount=100,
         currency="USD",
         version=0,
@@ -104,9 +104,9 @@ async def test_update_payment_intent_fails_on_optimistic_lock_error(repo: Dynamo
     await repo.update(payment_intent)  # Increments version in DynamoDB
 
     payment_intent = PaymentIntent(
-        id="pi-123456",
+        id="pi_123456",
         state=PaymentIntentState.CHARGE_FAILED,
-        customer_id="customer-123456",
+        customer_id="cust_123456",
         amount=2963700,
         currency="USD",
         version=0,  # Attempt to update the item with old version
@@ -125,9 +125,9 @@ async def test_update_payment_intent_fails_on_optimistic_lock_error(repo: Dynamo
 @pytest.mark.asyncio()
 async def test_should_raise_on_not_existing_payment_intent_update(repo: DynamoDBPaymentIntentRepository) -> None:
     payment_intent = PaymentIntent(
-        id="pi-123456",
+        id="pi_123456",
         state=PaymentIntentState.CREATED,
-        customer_id="customer-123456",
+        customer_id="cust_123456",
         amount=100,
         currency="USD",
         version=0,

@@ -11,7 +11,7 @@ from pessimistic_payments.use_cases import charge_payment_intent, create_payment
 
 @pytest.mark.asyncio()
 async def test_payment_intent_charged(repo: PaymentIntentRepository) -> None:
-    payment_intent = await create_payment_intent("customer-123456", 100, "USD", repo)
+    payment_intent = await create_payment_intent("cust_123456", 100, "USD", repo)
     payment_gw_mock = Mock(spec_set=PaymentGateway)
 
     await charge_payment_intent(payment_intent.id, repo, payment_gw_mock)
@@ -22,7 +22,7 @@ async def test_payment_intent_charged(repo: PaymentIntentRepository) -> None:
 
 @pytest.mark.asyncio()
 async def test_payment_intent_charge_failed(repo: PaymentIntentRepository) -> None:
-    payment_intent = await create_payment_intent("customer-123456", 100, "USD", repo)
+    payment_intent = await create_payment_intent("cust_123456", 100, "USD", repo)
     payment_gw_mock = Mock(spec_set=PaymentGateway)
     payment_gw_mock.charge.side_effect = PaymentGatewayError(
         PaymentGatewayErrorResponse(
@@ -39,7 +39,7 @@ async def test_payment_intent_charge_failed(repo: PaymentIntentRepository) -> No
 
 @pytest.mark.asyncio()
 async def test_charged_payment_intent_cannot_be_charged_again(repo: PaymentIntentRepository) -> None:
-    payment_intent = await create_payment_intent("customer-123456", 100, "USD", repo)
+    payment_intent = await create_payment_intent("cust_123456", 100, "USD", repo)
     payment_gw_mock = Mock(spec_set=PaymentGateway)
     await charge_payment_intent(payment_intent.id, repo, payment_gw_mock)
 
@@ -53,7 +53,7 @@ async def test_charged_payment_intent_cannot_be_charged_again(repo: PaymentInten
 
 @pytest.mark.asyncio()
 async def test_payment_intent_charged_once(repo: PaymentIntentRepository) -> None:
-    payment_intent = await create_payment_intent("customer-123456", 100, "USD", repo)
+    payment_intent = await create_payment_intent("cust_123456", 100, "USD", repo)
     payment_gw_mock = Mock(spec_set=PaymentGateway)
 
     await asyncio.wait(
@@ -70,15 +70,15 @@ async def test_payment_intent_charged_once(repo: PaymentIntentRepository) -> Non
 
 @pytest.mark.asyncio()
 async def test_get_not_existing_payment_intent(repo: PaymentIntentRepository) -> None:
-    with pytest.raises(PaymentIntentNotFoundError, match="pi-123456"):
-        await get_payment_intent("pi-123456", repo)
+    with pytest.raises(PaymentIntentNotFoundError, match="pi_123456"):
+        await get_payment_intent("pi_123456", repo)
 
 
 @pytest.mark.asyncio()
 async def test_charge_not_existing_payment_intent(repo: PaymentIntentRepository) -> None:
     payment_gw_mock = Mock(spec_set=PaymentGateway)
 
-    with pytest.raises(PaymentIntentNotFoundError, match="pi-123456"):
-        await charge_payment_intent("pi-123456", repo, payment_gw_mock)
+    with pytest.raises(PaymentIntentNotFoundError, match="pi_123456"):
+        await charge_payment_intent("pi_123456", repo, payment_gw_mock)
 
     payment_gw_mock.charge.assert_not_called()

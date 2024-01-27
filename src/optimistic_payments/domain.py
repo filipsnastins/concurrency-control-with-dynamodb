@@ -28,17 +28,6 @@ class PaymentIntent:
         self._currency = currency
         self._version = version
 
-    @staticmethod
-    def create(customer_id: str, amount: int, currency: str) -> "PaymentIntent":
-        return PaymentIntent(
-            id=str(uuid.uuid4()),
-            state=PaymentIntentState.CREATED,
-            customer_id=customer_id,
-            amount=amount,
-            currency=currency,
-            version=0,
-        )
-
     @property
     def id(self) -> str:
         return self._id
@@ -62,3 +51,14 @@ class PaymentIntent:
     @property
     def version(self) -> int:
         return self._version
+
+    @staticmethod
+    def create(customer_id: str, amount: int, currency: str) -> "PaymentIntent":
+        return PaymentIntent(
+            id=f"pi_{uuid.uuid4()}",
+            state=PaymentIntentState.CREATED,
+            customer_id=customer_id,
+            amount=amount,
+            currency=currency,
+            version=0,
+        )

@@ -26,16 +26,6 @@ class PaymentIntent:
         self._amount = amount
         self._currency = currency
 
-    @staticmethod
-    def create(customer_id: str, amount: int, currency: str) -> "PaymentIntent":
-        return PaymentIntent(
-            id=str(uuid.uuid4()),
-            state=PaymentIntentState.CREATED,
-            customer_id=customer_id,
-            amount=amount,
-            currency=currency,
-        )
-
     @property
     def id(self) -> str:
         return self._id
@@ -55,6 +45,16 @@ class PaymentIntent:
     @property
     def currency(self) -> str:
         return self._currency
+
+    @staticmethod
+    def create(customer_id: str, amount: int, currency: str) -> "PaymentIntent":
+        return PaymentIntent(
+            id=f"pi_{uuid.uuid4()}",
+            state=PaymentIntentState.CREATED,
+            customer_id=customer_id,
+            amount=amount,
+            currency=currency,
+        )
 
     async def charge(self, payment_gateway: PaymentGateway) -> None:
         if self._state != PaymentIntentState.CREATED:
