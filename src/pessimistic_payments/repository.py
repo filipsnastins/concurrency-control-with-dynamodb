@@ -50,6 +50,7 @@ class DynamoDBPaymentIntentRepository:
                 "PK": {"S": f"PAYMENT_INTENT#{id}"},
                 "SK": {"S": "PAYMENT_INTENT"},
             },
+            ConsistentRead=True,
         )
         item = response.get("Item")
         if item is None:
