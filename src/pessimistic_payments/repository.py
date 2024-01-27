@@ -1,8 +1,9 @@
-import datetime
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Protocol
 
 from types_aiobotocore_dynamodb import DynamoDBClient
+
+from database_locks.pessimistic_lock import DynamoDBPessimisticLock
 
 from .domain import PaymentIntent, PaymentIntentNotFoundError, PaymentIntentState
 
@@ -22,10 +23,6 @@ class PaymentIntentRepository(Protocol):
         ...
 
 
-class PessimisticLockError(Exception):
-    pass
-
-
 class PaymentIntentIdentifierCollisionError(Exception):
     pass
 
@@ -34,34 +31,16 @@ class DynamoDBPaymentIntentRepository:
     def __init__(self, client: DynamoDBClient, table_name: str) -> None:
         self._client = client
         self._table_name = table_name
+        self._lock = DynamoDBPessimisticLock(self._client, self._table_name)
 
     @asynccontextmanager
     async def lock(self, payment_intent: PaymentIntent) -> AsyncGenerator[None, None]:
-        try:
-            await self._client.update_item(
-                TableName=self._table_name,
-                Key={
-                    "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
-                    "SK": {"S": "PAYMENT_INTENT"},
-                },
-                UpdateExpression="SET #LockedAt = :LockedAt",
-                ExpressionAttributeNames={"#LockedAt": "__LockedAt"},
-                ExpressionAttributeValues={":LockedAt": {"S": datetime.datetime.now(tz=datetime.UTC).isoformat()}},
-                ConditionExpression="attribute_exists(Id) AND attribute_not_exists(#LockedAt)",
-            )
-        except self._client.exceptions.ConditionalCheckFailedException:
-            raise PessimisticLockError(f"Unable to acquire pessimistic lock for PaymentIntent: {payment_intent.id}")
-        yield
-        await self._client.update_item(
-            TableName=self._table_name,
-            Key={
-                "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
-                "SK": {"S": "PAYMENT_INTENT"},
-            },
-            UpdateExpression="REMOVE #LockedAt",
-            ExpressionAttributeNames={"#LockedAt": "__LockedAt"},
-            ConditionExpression="attribute_exists(Id)",
-        )
+        key = {
+            "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
+            "SK": {"S": "PAYMENT_INTENT"},
+        }
+        async with self._lock(key):
+            yield
 
     async def get(self, id: str) -> PaymentIntent | None:
         response = await self._client.get_item(
