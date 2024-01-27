@@ -61,7 +61,7 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
 
     payment_intent = PaymentIntent(
         id=payment_intent.id,
-        state=PaymentIntentState.SUCCEEDED,
+        state=PaymentIntentState.CHARGED,
         customer_id="customer-999999",
         amount=1481850,
         currency="JPY",
@@ -71,7 +71,7 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
     db_payment_intent = await repo.get(payment_intent.id)
     assert db_payment_intent
     assert db_payment_intent.id == "pi-123456"
-    assert db_payment_intent.state == PaymentIntentState.SUCCEEDED
+    assert db_payment_intent.state == PaymentIntentState.CHARGED
     assert db_payment_intent.customer_id == "customer-123456"
     assert db_payment_intent.amount == 100
     assert db_payment_intent.currency == "USD"

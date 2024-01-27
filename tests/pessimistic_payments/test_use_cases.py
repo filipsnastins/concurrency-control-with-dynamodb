@@ -10,14 +10,14 @@ from pessimistic_payments.use_cases import charge_payment_intent, create_payment
 
 
 @pytest.mark.asyncio()
-async def test_payment_intent_charge_succeeded(repo: PaymentIntentRepository) -> None:
+async def test_payment_intent_charged(repo: PaymentIntentRepository) -> None:
     payment_intent = await create_payment_intent("customer-123456", 100, "USD", repo)
     payment_gw_mock = Mock(spec_set=PaymentGateway)
 
     await charge_payment_intent(payment_intent.id, repo, payment_gw_mock)
 
     payment_intent = await get_payment_intent(payment_intent.id, repo)
-    assert payment_intent.state == "SUCCEEDED"
+    assert payment_intent.state == "CHARGED"
 
 
 @pytest.mark.asyncio()
@@ -34,21 +34,21 @@ async def test_payment_intent_charge_failed(repo: PaymentIntentRepository) -> No
     await charge_payment_intent(payment_intent.id, repo, payment_gw_mock)
 
     payment_intent = await get_payment_intent(payment_intent.id, repo)
-    assert payment_intent.state == "FAILED"
+    assert payment_intent.state == "CHARGE_FAILED"
 
 
 @pytest.mark.asyncio()
-async def test_succeeded_payment_intent_cannot_be_charged_again(repo: PaymentIntentRepository) -> None:
+async def test_charged_payment_intent_cannot_be_charged_again(repo: PaymentIntentRepository) -> None:
     payment_intent = await create_payment_intent("customer-123456", 100, "USD", repo)
     payment_gw_mock = Mock(spec_set=PaymentGateway)
     await charge_payment_intent(payment_intent.id, repo, payment_gw_mock)
 
-    with pytest.raises(PaymentIntentStateError, match="PaymentIntent is not in a chargeable state: SUCCEEDED"):
+    with pytest.raises(PaymentIntentStateError, match="PaymentIntent is not in a chargeable state: CHARGED"):
         await charge_payment_intent(payment_intent.id, repo, payment_gw_mock)
 
     payment_gw_mock.charge.assert_called_once_with(payment_intent.id, payment_intent.amount, payment_intent.currency)
     payment_intent = await get_payment_intent(payment_intent.id, repo)
-    assert payment_intent.state == "SUCCEEDED"
+    assert payment_intent.state == "CHARGED"
 
 
 @pytest.mark.asyncio()
@@ -65,7 +65,7 @@ async def test_payment_intent_charged_once(repo: PaymentIntentRepository) -> Non
 
     payment_gw_mock.charge.assert_called_once_with(payment_intent.id, payment_intent.amount, payment_intent.currency)
     payment_intent = await get_payment_intent(payment_intent.id, repo)
-    assert payment_intent.state == "SUCCEEDED"
+    assert payment_intent.state == "CHARGED"
 
 
 @pytest.mark.asyncio()

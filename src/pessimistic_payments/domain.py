@@ -14,8 +14,8 @@ class PaymentIntentStateError(Exception):
 
 class PaymentIntentState(StrEnum):
     CREATED = "CREATED"
-    SUCCEEDED = "SUCCEEDED"
-    FAILED = "FAILED"
+    CHARGED = "CHARGED"
+    CHARGE_FAILED = "CHARGE_FAILED"
 
 
 class PaymentIntent:
@@ -62,6 +62,6 @@ class PaymentIntent:
         try:
             await payment_gateway.charge(self._id, self._amount, self._currency)
         except PaymentGatewayError:
-            self._state = PaymentIntentState.FAILED
+            self._state = PaymentIntentState.CHARGE_FAILED
         else:
-            self._state = PaymentIntentState.SUCCEEDED
+            self._state = PaymentIntentState.CHARGED
