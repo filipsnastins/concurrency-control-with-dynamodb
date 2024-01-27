@@ -269,7 +269,7 @@ async def test_should_discard_stale_lock_when_lock_timeout_has_expired(
 @pytest.mark.asyncio()
 async def test_should_lock_item_with_only_partition_key(localstack_dynamodb_client: DynamoDBClient) -> None:
     # Arrange
-    dynamodb_table_name = f"autotest-pessimistic-payments-{uuid.uuid4()}"
+    dynamodb_table_name = f"autotest-dynamodb-pessimistic-lock-{uuid.uuid4()}"
     await create_table(localstack_dynamodb_client, dynamodb_table_name, with_range_key=False)
 
     key = generate_dynamodb_item_key(with_range_key=False)
