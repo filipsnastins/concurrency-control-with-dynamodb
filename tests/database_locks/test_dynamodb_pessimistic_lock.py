@@ -1,4 +1,5 @@
 import uuid
+from unittest import mock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -7,7 +8,7 @@ from types_aiobotocore_dynamodb import DynamoDBClient
 from database_locks import DynamoDBPessimisticLock, PessimisticLockError
 
 
-def mock_now(mocker: MockerFixture, now: str) -> None:
+def mock_time_now(mocker: MockerFixture, now: str) -> None:
     mocker.patch("database_locks.pessimistic_lock.now", return_value=now)
 
 
@@ -60,34 +61,6 @@ async def test_should_not_create_not_existing_item__on_lock_release(
 
 
 @pytest.mark.asyncio()
-async def test_should_set_and_remove_lock_attribute(
-    dynamodb_pessimistic_lock: DynamoDBPessimisticLock,
-    localstack_dynamodb_client: DynamoDBClient,
-    dynamodb_table_name: str,
-    mocker: MockerFixture,
-) -> None:
-    key = generate_dynamodb_item_key()
-    await create_dynamodb_item(localstack_dynamodb_client, dynamodb_table_name, key)
-    mock_now(mocker, "2024-01-27T09:59:24.868868+00:00")
-
-    async with dynamodb_pessimistic_lock(key):
-        item = await localstack_dynamodb_client.get_item(TableName=dynamodb_table_name, Key=key)
-        assert item["Item"] == {
-            **key,
-            "Id": {"S": "123456"},
-            "Name": {"S": "Test Name"},
-            "__LockedAt": {"S": "2024-01-27T09:59:24.868868+00:00"},
-        }
-
-    item = await localstack_dynamodb_client.get_item(TableName=dynamodb_table_name, Key=key)
-    assert item["Item"] == {
-        **key,
-        "Id": {"S": "123456"},
-        "Name": {"S": "Test Name"},
-    }
-
-
-@pytest.mark.asyncio()
 async def test_should_raise_if_lock_already_acquired(
     dynamodb_pessimistic_lock: DynamoDBPessimisticLock,
     localstack_dynamodb_client: DynamoDBClient,
@@ -119,6 +92,57 @@ async def test_should_release_lock_on_exception(
         pass
 
 
+@pytest.mark.asyncio()
+async def test_should_set_and_remove_lock_attribute(
+    dynamodb_pessimistic_lock: DynamoDBPessimisticLock,
+    localstack_dynamodb_client: DynamoDBClient,
+    dynamodb_table_name: str,
+    mocker: MockerFixture,
+) -> None:
+    key = generate_dynamodb_item_key()
+    await create_dynamodb_item(localstack_dynamodb_client, dynamodb_table_name, key)
+    mock_time_now(mocker, "2024-01-27T09:59:24.868868+00:00")
+
+    async with dynamodb_pessimistic_lock(key):
+        item = await localstack_dynamodb_client.get_item(TableName=dynamodb_table_name, Key=key)
+        assert item["Item"] == {
+            **key,
+            "Id": {"S": "123456"},
+            "Name": {"S": "Test Name"},
+            "__LockedAt": {"S": "2024-01-27T09:59:24.868868+00:00"},
+        }
+
+    item = await localstack_dynamodb_client.get_item(TableName=dynamodb_table_name, Key=key)
+    assert item["Item"] == {
+        **key,
+        "Id": {"S": "123456"},
+        "Name": {"S": "Test Name"},
+    }
+
+
+@pytest.mark.asyncio()
+async def test_configure_lock_attribute(localstack_dynamodb_client: DynamoDBClient, dynamodb_table_name: str) -> None:
+    dynamodb_pessimistic_lock = DynamoDBPessimisticLock(
+        localstack_dynamodb_client, dynamodb_table_name, lock_attribute="__MyLockAttribute"
+    )
+    key = generate_dynamodb_item_key()
+    await create_dynamodb_item(localstack_dynamodb_client, dynamodb_table_name, key)
+
+    async with dynamodb_pessimistic_lock(key):
+        item = await localstack_dynamodb_client.get_item(TableName=dynamodb_table_name, Key=key)
+        assert item["Item"] == {
+            **key,
+            "Id": {"S": "123456"},
+            "Name": {"S": "Test Name"},
+            "__MyLockAttribute": {"S": mock.ANY},
+        }
+
+    item = await localstack_dynamodb_client.get_item(TableName=dynamodb_table_name, Key=key)
+    assert item["Item"] == {
+        **key,
+        "Id": {"S": "123456"},
+        "Name": {"S": "Test Name"},
+    }
+
+
 # TODO: discard stale lock
-# TODO: change lock attribute name
-# TODO: release lock on exception
