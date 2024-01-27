@@ -1591,6 +1591,17 @@ redis = ["redis"]
 selenium = ["selenium"]
 
 [[package]]
+name = "toml"
+version = "0.10.2"
+description = "Python Library for Tom's Obvious, Minimal Language"
+optional = false
+python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
+files = [
+    {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
+    {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
+]
+
+[[package]]
 name = "tomodachi-testcontainers"
 version = "1.1.0"
 description = "Collection of Testcontainers, pytest fixtures and test clients for end-to-end/integration testing for Python Tomodachi framework. A great starting point to learn more about Testcontainers and necessity of integration testing."
@@ -1618,6 +1629,22 @@ mysql = ["cryptography (>=41.0,<42.0)", "pymysql (>=1.1.0,<2.0.0)", "sqlalchemy 
 postgres = ["psycopg2 (>=2.9.9,<3.0.0)", "sqlalchemy (>=1.3,<3)"]
 sftp = ["asyncssh (>=2.13.2,<3.0.0)"]
 wiremock = ["wiremock (>=2.6.1,<3.0.0)"]
+
+[[package]]
+name = "tryceratops"
+version = "2.3.2"
+description = "Prevent Exception Handling AntiPatterns"
+optional = false
+python-versions = ">=3.8.1,<4.0"
+files = [
+    {file = "tryceratops-2.3.2-py3-none-any.whl", hash = "sha256:032fa3cf3659c9865a07b59057edf9efe9e38631e6b977fdae04064888cb62ba"},
+    {file = "tryceratops-2.3.2.tar.gz", hash = "sha256:e9d77811d8f7d886c4ceaeadccd2675c6f2d794344775463faf1cb969e49d865"},
+]
+
+[package.dependencies]
+click = ">=7"
+rich = ">=10.14.0"
+toml = ">=0.10.2"
 
 [[package]]
 name = "types-aiobotocore"
@@ -2343,4 +2370,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "fc458b031d74291b1f8cbc7e0707a3413fd2b759a9baaa0e726bb304f17cbbf9"
+content-hash = "d09c198c3375559b8330180063b7208f877f60d4db22b5131fe312c5e2384f3c"

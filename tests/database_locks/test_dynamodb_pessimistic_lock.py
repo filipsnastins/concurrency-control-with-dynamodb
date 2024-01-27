@@ -113,7 +113,7 @@ async def test_should_release_lock_on_exception(
 
     with pytest.raises(RuntimeError):  # noqa: PT012
         async with dynamodb_pessimistic_lock(key):
-            raise RuntimeError("Something went wrong")
+            raise RuntimeError
 
     async with dynamodb_pessimistic_lock(key):
         pass

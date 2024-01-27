@@ -38,8 +38,8 @@ class DynamoDBPessimisticLock:
                 ExpressionAttributeValues={":LockAttribute": {"S": now()}},
                 ConditionExpression=f"attribute_not_exists(#LockAttribute) AND {self._item_exists_condition_expression(key)}",
             )
-        except self._client.exceptions.ConditionalCheckFailedException:
-            raise PessimisticLockError(key)
+        except self._client.exceptions.ConditionalCheckFailedException as e:
+            raise PessimisticLockError(key) from e
 
     async def _release_lock(self, key: DynamoDBKeyType) -> None:
         try:

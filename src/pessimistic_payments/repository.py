@@ -76,8 +76,8 @@ class DynamoDBPaymentIntentRepository:
                 },
                 ConditionExpression="attribute_not_exists(Id)",
             )
-        except self._client.exceptions.ConditionalCheckFailedException:
-            raise PaymentIntentIdentifierCollisionError(payment_intent.id)
+        except self._client.exceptions.ConditionalCheckFailedException as e:
+            raise PaymentIntentIdentifierCollisionError(payment_intent.id) from e
 
     async def update(self, payment_intent: PaymentIntent) -> None:
         try:
@@ -92,5 +92,5 @@ class DynamoDBPaymentIntentRepository:
                 ExpressionAttributeValues={":State": {"S": payment_intent.state}},
                 ConditionExpression="attribute_exists(Id)",
             )
-        except self._client.exceptions.ConditionalCheckFailedException:
-            raise PaymentIntentNotFoundError(payment_intent.id)
+        except self._client.exceptions.ConditionalCheckFailedException as e:
+            raise PaymentIntentNotFoundError(payment_intent.id) from e
