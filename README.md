@@ -11,4 +11,7 @@ work in progress 🚧
 ## Optimistic Lock
 
 - In message driven architecture when used together with transactional outbox
+
   - If external services are wrapped in their own services/message consumers - request/response over messages
+
+- <https://aws.amazon.com/blogs/database/implement-resource-counters-with-amazon-dynamodb/>

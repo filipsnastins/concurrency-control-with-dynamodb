@@ -10,10 +10,11 @@
 
 - [ ] `optimistic_payments`
 
-  - [ ] Update amount use case
+  - [x] Update amount use case
+  - [ ] Charge Payment Intent use case - with optimistic & semantic locks
   - [ ] Update `PaymentIntent.version` in-place in `DynamoDBPaymentIntentRepository.update`?
 
-- [ ] `__eq__` method on aggregate objects?
+- [x] `__eq__` method on aggregate objects?
 
   - [ ] `test_domain.py`
 
@@ -22,3 +23,5 @@
 ## Docs
 
 - [ ] README
+
+- [ ] Using pessimistic and optimistic locks together
