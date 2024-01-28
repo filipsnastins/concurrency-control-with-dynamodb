@@ -1,7 +1,8 @@
 import pytest
+from botocore.exceptions import ClientError
 
 from pessimistic_payments.domain import PaymentIntent, PaymentIntentNotFoundError, PaymentIntentState
-from pessimistic_payments.repository import DynamoDBPaymentIntentRepository, PaymentIntentIdentifierCollisionError
+from pessimistic_payments.repository import DynamoDBPaymentIntentRepository
 
 
 @pytest.mark.asyncio()
@@ -38,7 +39,7 @@ async def test_should_raise_on_already_existing_payment_intent_id(repo: DynamoDB
 
     await repo.create(payment_intent)
 
-    with pytest.raises(PaymentIntentIdentifierCollisionError, match=payment_intent.id):
+    with pytest.raises(ClientError):
         await repo.create(payment_intent)
 
 

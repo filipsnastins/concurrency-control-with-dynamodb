@@ -68,7 +68,7 @@ class PaymentIntent:
 
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, PaymentIntent):
-            return False
+            raise NotImplementedError
         return (
             self._id == __value._id
             and self._state == __value._state

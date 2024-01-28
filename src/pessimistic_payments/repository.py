@@ -13,7 +13,7 @@ class PaymentIntentRepository(Protocol):
     async def lock(self, payment_intent: PaymentIntent) -> AsyncGenerator[None, None]:
         yield None  # pragma: no cover
 
-    async def get(self, id: str) -> PaymentIntent | None:
+    async def get(self, payment_intent_id: str) -> PaymentIntent | None:
         ...  # pragma: no cover
 
     async def create(self, payment_intent: PaymentIntent) -> None:
@@ -21,10 +21,6 @@ class PaymentIntentRepository(Protocol):
 
     async def update(self, payment_intent: PaymentIntent) -> None:
         ...  # pragma: no cover
-
-
-class PaymentIntentIdentifierCollisionError(Exception):
-    pass
 
 
 class DynamoDBPaymentIntentRepository:
@@ -43,11 +39,11 @@ class DynamoDBPaymentIntentRepository:
         ):
             yield
 
-    async def get(self, id: str) -> PaymentIntent | None:
+    async def get(self, payment_intent_id: str) -> PaymentIntent | None:
         response = await self._client.get_item(
             TableName=self._table_name,
             Key={
-                "PK": {"S": f"PAYMENT_INTENT#{id}"},
+                "PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"},
                 "SK": {"S": "PAYMENT_INTENT"},
             },
             ConsistentRead=True,
@@ -64,22 +60,19 @@ class DynamoDBPaymentIntentRepository:
         )
 
     async def create(self, payment_intent: PaymentIntent) -> None:
-        try:
-            await self._client.put_item(
-                TableName=self._table_name,
-                Item={
-                    "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
-                    "SK": {"S": "PAYMENT_INTENT"},
-                    "Id": {"S": payment_intent.id},
-                    "State": {"S": payment_intent.state},
-                    "CustomerId": {"S": payment_intent.customer_id},
-                    "Amount": {"N": str(payment_intent.amount)},
-                    "Currency": {"S": payment_intent.currency},
-                },
-                ConditionExpression="attribute_not_exists(Id)",
-            )
-        except self._client.exceptions.ConditionalCheckFailedException as e:
-            raise PaymentIntentIdentifierCollisionError(payment_intent.id) from e
+        await self._client.put_item(
+            TableName=self._table_name,
+            Item={
+                "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
+                "SK": {"S": "PAYMENT_INTENT"},
+                "Id": {"S": payment_intent.id},
+                "State": {"S": payment_intent.state},
+                "CustomerId": {"S": payment_intent.customer_id},
+                "Amount": {"N": str(payment_intent.amount)},
+                "Currency": {"S": payment_intent.currency},
+            },
+            ConditionExpression="attribute_not_exists(Id)",
+        )
 
     async def update(self, payment_intent: PaymentIntent) -> None:
         try:
