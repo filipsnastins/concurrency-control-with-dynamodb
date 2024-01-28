@@ -79,7 +79,7 @@ exclude_dirs = [
 ]
 
 [tool.flake8]
-ignore = ["E501", "W503"]
+ignore = ["E501", "W503", "PT016"]
 literal-inline-quotes = "double"
 literal-multiline-quotes = "double"
 exclude = [
