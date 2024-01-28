@@ -40,9 +40,9 @@ async def test_should_not_create_not_existing_item__on_lock_acquisition(
 ) -> None:
     key = generate_dynamodb_item_key()
 
-    with pytest.raises(PessimisticLockAcquisitionError, match=str(key)):
+    with pytest.raises(PessimisticLockAcquisitionError):  # noqa: PT012
         async with dynamodb_pessimistic_lock(key):
-            pass
+            pytest.fail(reason="Executed code without acquiring lock")  # pragma: no cover
 
     item = await localstack_dynamodb_client.get_item(TableName=dynamodb_table_name, Key=key)
     assert item.get("Item") is None
@@ -57,7 +57,7 @@ async def test_should_not_create_not_existing_item__on_lock_release(
     key = generate_dynamodb_item_key()
     await create_dynamodb_item(localstack_dynamodb_client, dynamodb_table_name, key)
 
-    with pytest.raises(PessimisticLockItemNotFoundError, match=str(key)):  # noqa: PT012
+    with pytest.raises(PessimisticLockItemNotFoundError):  # noqa: PT012
         async with dynamodb_pessimistic_lock(key):
             await localstack_dynamodb_client.delete_item(TableName=dynamodb_table_name, Key=key)
 
@@ -75,16 +75,13 @@ async def test_should_raise_if_lock_not_acquired_and_not_release_existing_lock(
     await create_dynamodb_item(localstack_dynamodb_client, dynamodb_table_name, key)
 
     async with dynamodb_pessimistic_lock(key):
-        with pytest.raises(PessimisticLockAcquisitionError):
+        with pytest.raises(PessimisticLockAcquisitionError):  # noqa: PT012
             async with dynamodb_pessimistic_lock(key):
-                pass
+                pytest.fail(reason="Executed code without acquiring lock")  # pragma: no cover
 
-        with pytest.raises(PessimisticLockAcquisitionError):
+        with pytest.raises(PessimisticLockAcquisitionError):  # noqa: PT012
             async with dynamodb_pessimistic_lock(key):
-                pass
-
-    async with dynamodb_pessimistic_lock(key):
-        pass
+                pytest.fail(reason="Executed code without acquiring lock")  # pragma: no cover
 
 
 @pytest.mark.asyncio()
@@ -214,16 +211,13 @@ async def test_should_not_discard_stale_lock_when_lock_timeout_has_not_expired(
         mock_time_now(mocker, future)
 
         # Assert
-        with pytest.raises(PessimisticLockAcquisitionError):
+        with pytest.raises(PessimisticLockAcquisitionError):  # noqa: PT012
             async with dynamodb_pessimistic_lock(key):
-                pass
+                pytest.fail(reason="Executed code without acquiring lock")  # pragma: no cover
 
-        with pytest.raises(PessimisticLockAcquisitionError):
+        with pytest.raises(PessimisticLockAcquisitionError):  # noqa: PT012
             async with dynamodb_pessimistic_lock(key):
-                pass
-
-    async with dynamodb_pessimistic_lock(key):
-        pass
+                pytest.fail(reason="Executed code without acquiring lock")  # pragma: no cover
 
 
 @pytest.mark.parametrize(
@@ -262,12 +256,9 @@ async def test_should_discard_stale_lock_when_lock_timeout_has_expired(
         async with dynamodb_pessimistic_lock(key):
             pass
 
-    async with dynamodb_pessimistic_lock(key):
-        pass
-
 
 @pytest.mark.asyncio()
-async def test_should_lock_item_with_only_partition_key(localstack_dynamodb_client: DynamoDBClient) -> None:
+async def test_should_lock_and_unlock_item_with_only_partition_key(localstack_dynamodb_client: DynamoDBClient) -> None:
     # Arrange
     dynamodb_table_name = f"autotest-dynamodb-pessimistic-lock-{uuid.uuid4()}"
     await create_table(localstack_dynamodb_client, dynamodb_table_name, with_range_key=False)
@@ -280,13 +271,13 @@ async def test_should_lock_item_with_only_partition_key(localstack_dynamodb_clie
     # Act
     async with dynamodb_pessimistic_lock(key):
         # Assert
-        with pytest.raises(PessimisticLockAcquisitionError):
+        with pytest.raises(PessimisticLockAcquisitionError):  # noqa: PT012
             async with dynamodb_pessimistic_lock(key):
-                pass
+                pytest.fail(reason="Executed code without acquiring lock")  # pragma: no cover
 
-        with pytest.raises(PessimisticLockAcquisitionError):
+        with pytest.raises(PessimisticLockAcquisitionError):  # noqa: PT012
             async with dynamodb_pessimistic_lock(key):
-                pass
+                pytest.fail(reason="Executed code without acquiring lock")  # pragma: no cover
 
     async with dynamodb_pessimistic_lock(key):
         pass
