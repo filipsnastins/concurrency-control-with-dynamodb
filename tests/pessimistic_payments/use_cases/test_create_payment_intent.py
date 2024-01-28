@@ -21,4 +21,5 @@ async def test_create_and_get_payment_intent(repo: PaymentIntentRepository) -> N
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
     )

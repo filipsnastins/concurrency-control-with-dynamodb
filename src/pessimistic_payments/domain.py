@@ -1,7 +1,8 @@
 import uuid
+from dataclasses import dataclass
 from enum import StrEnum
 
-from .payment_gateway import PaymentGateway, PaymentGatewayError
+from .payment_gateway import PaymentGateway
 
 
 class PaymentIntentNotFoundError(Exception):
@@ -18,13 +19,29 @@ class PaymentIntentState(StrEnum):
     CHARGE_FAILED = "CHARGE_FAILED"
 
 
+@dataclass
+class Charge:
+    id: str
+    error_code: str | None
+    error_message: str | None
+
+
 class PaymentIntent:
-    def __init__(self, id: str, state: PaymentIntentState, customer_id: str, amount: int, currency: str) -> None:
+    def __init__(
+        self,
+        id: str,
+        state: PaymentIntentState,
+        customer_id: str,
+        amount: int,
+        currency: str,
+        charge: Charge | None,
+    ) -> None:
         self._id = id
         self._state = state
         self._customer_id = customer_id
         self._amount = amount
         self._currency = currency
+        self._charge = charge
 
     @property
     def id(self) -> str:
@@ -46,6 +63,10 @@ class PaymentIntent:
     def currency(self) -> str:
         return self._currency
 
+    @property
+    def charge(self) -> Charge | None:
+        return self._charge
+
     @staticmethod
     def create(customer_id: str, amount: int, currency: str) -> "PaymentIntent":
         return PaymentIntent(
@@ -54,17 +75,24 @@ class PaymentIntent:
             customer_id=customer_id,
             amount=amount,
             currency=currency,
+            charge=None,
         )
 
-    async def charge(self, payment_gateway: PaymentGateway) -> None:
+    async def execute_charge(self, payment_gateway: PaymentGateway) -> None:
         if self._state != PaymentIntentState.CREATED:
             raise PaymentIntentStateError(f"PaymentIntent is not in a chargeable state: {self._state}")
-        try:
-            await payment_gateway.charge(self._id, self._amount, self._currency)
-        except PaymentGatewayError:
+
+        response = await payment_gateway.charge(self._id, self._amount, self._currency)
+        if response.error_code is not None:
             self._state = PaymentIntentState.CHARGE_FAILED
         else:
             self._state = PaymentIntentState.CHARGED
+
+        self._charge = Charge(
+            id=response.id,
+            error_code=response.error_code,
+            error_message=response.error_message,
+        )
 
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, PaymentIntent):

@@ -1,11 +1,13 @@
+import json
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 from typing import AsyncGenerator, Protocol
 
 from types_aiobotocore_dynamodb import DynamoDBClient
 
 from database_locks import DynamoDBPessimisticLock
 
-from .domain import PaymentIntent, PaymentIntentNotFoundError, PaymentIntentState
+from .domain import Charge, PaymentIntent, PaymentIntentNotFoundError, PaymentIntentState
 
 
 class PaymentIntentRepository(Protocol):
@@ -51,12 +53,14 @@ class DynamoDBPaymentIntentRepository:
         item = response.get("Item")
         if item is None:
             return None
+        charge_item = json.loads(item["Charge"]["S"])
         return PaymentIntent(
             id=item["Id"]["S"],
             state=PaymentIntentState(item["State"]["S"]),
             customer_id=item["CustomerId"]["S"],
             amount=int(item["Amount"]["N"]),
             currency=item["Currency"]["S"],
+            charge=Charge(**charge_item) if charge_item else None,
         )
 
     async def create(self, payment_intent: PaymentIntent) -> None:
@@ -70,6 +74,7 @@ class DynamoDBPaymentIntentRepository:
                 "CustomerId": {"S": payment_intent.customer_id},
                 "Amount": {"N": str(payment_intent.amount)},
                 "Currency": {"S": payment_intent.currency},
+                "Charge": {"S": json.dumps(asdict(payment_intent.charge) if payment_intent.charge else {})},
             },
             ConditionExpression="attribute_not_exists(Id)",
         )
@@ -82,9 +87,15 @@ class DynamoDBPaymentIntentRepository:
                     "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
                     "SK": {"S": "PAYMENT_INTENT"},
                 },
-                UpdateExpression="SET #State = :State",
-                ExpressionAttributeNames={"#State": "State"},
-                ExpressionAttributeValues={":State": {"S": payment_intent.state}},
+                UpdateExpression="SET #State = :State, #Charge = :Charge",
+                ExpressionAttributeNames={
+                    "#State": "State",
+                    "#Charge": "Charge",
+                },
+                ExpressionAttributeValues={
+                    ":State": {"S": payment_intent.state},
+                    ":Charge": {"S": json.dumps(asdict(payment_intent.charge) if payment_intent.charge else {})},
+                },
                 ConditionExpression="attribute_exists(Id)",
             )
         except self._client.exceptions.ConditionalCheckFailedException as e:

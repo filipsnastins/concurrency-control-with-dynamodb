@@ -3,16 +3,12 @@ from typing import Protocol
 
 
 class PaymentGateway(Protocol):
-    async def charge(self, payment_intent_id: str, amount: int, currency: str) -> None:
+    async def charge(self, payment_intent_id: str, amount: int, currency: str) -> "PaymentGatewayResponse":
         ...  # pragma: no cover
 
 
 @dataclass
-class PaymentGatewayErrorResponse:
-    error_code: str
-    error_message: str
-
-
-class PaymentGatewayError(Exception):
-    def __init__(self, response: PaymentGatewayErrorResponse) -> None:
-        self.response = response
+class PaymentGatewayResponse:
+    id: str
+    error_code: str | None = None
+    error_message: str | None = None

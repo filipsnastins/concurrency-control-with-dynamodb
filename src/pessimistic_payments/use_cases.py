@@ -26,7 +26,7 @@ async def charge_payment_intent(
         raise PaymentIntentNotFoundError(payment_intent_id)
 
     async with repository.lock(payment_intent):
-        await payment_intent.charge(payment_gateway)
+        await payment_intent.execute_charge(payment_gateway)
         await repository.update(payment_intent)
 
     return payment_intent
