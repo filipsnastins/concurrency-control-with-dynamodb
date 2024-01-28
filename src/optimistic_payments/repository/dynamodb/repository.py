@@ -1,8 +1,8 @@
 from types_aiobotocore_dynamodb import DynamoDBClient
 
 from database_locks import DynamoDBPessimisticLock
+from optimistic_payments.domain import PaymentIntent, PaymentIntentNotFoundError
 
-from ...domain import PaymentIntent, PaymentIntentNotFoundError
 from ..exceptions import OptimisticLockError
 from .dto import PaymentIntentDTO, PaymentIntentEventDTO
 
@@ -22,24 +22,24 @@ class DynamoDBPaymentIntentRepository:
         item = response.get("Item")
         if item is None:
             return None
-        return PaymentIntentDTO.from_item(item)
+        return PaymentIntentDTO.from_dynamodb_item(item).to_aggregate()
 
     async def create(self, payment_intent: PaymentIntent) -> None:
-        payment_intent_dto = PaymentIntentDTO.create(payment_intent)
+        payment_intent_dto = PaymentIntentDTO.from_aggregate(payment_intent)
         await self._client.put_item(
             TableName=self._table_name,
-            Item=payment_intent_dto.create_item_request(),
+            Item=payment_intent_dto.to_dynamodb_item(),
             ConditionExpression="attribute_not_exists(Id)",
         )
 
     async def update(self, payment_intent: PaymentIntent) -> None:
         try:
-            payment_intent_dto = PaymentIntentDTO.create(payment_intent)
+            payment_intent_dto = PaymentIntentDTO.from_aggregate(payment_intent)
             await self._client.transact_write_items(
                 TransactItems=[
-                    payment_intent_dto.update_item_request(self._table_name),
+                    payment_intent_dto.update_item_transact_request(self._table_name),
                     payment_intent_dto.optimistic_lock_request(self._table_name),
-                    *payment_intent_dto.add_event_requests(self._table_name),
+                    *payment_intent_dto.add_event_transact_requests(self._table_name),
                 ]
             )
         except self._client.exceptions.TransactionCanceledException as e:
@@ -58,4 +58,4 @@ class DynamoDBPaymentIntentRepository:
         item = response.get("Item")
         if item is None:
             return None
-        return PaymentIntentEventDTO.from_item(item)
+        return PaymentIntentEventDTO.from_dynamodb_item(item)
