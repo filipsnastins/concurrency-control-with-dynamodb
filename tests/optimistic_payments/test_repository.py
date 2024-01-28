@@ -28,14 +28,7 @@ async def test_create_and_get_payment_intent(repo: DynamoDBPaymentIntentReposito
 
     await repo.create(payment_intent)
 
-    db_payment_intent = await repo.get(payment_intent.id)
-    assert db_payment_intent
-    assert db_payment_intent.id == "pi_123456"
-    assert db_payment_intent.state == PaymentIntentState.CREATED
-    assert db_payment_intent.customer_id == "cust_123456"
-    assert db_payment_intent.amount == 100
-    assert db_payment_intent.currency == "USD"
-    assert db_payment_intent.version == 0
+    assert await repo.get(payment_intent.id) == payment_intent
 
 
 @pytest.mark.asyncio()
@@ -53,6 +46,23 @@ async def test_should_raise_on_already_existing_payment_intent_id(repo: DynamoDB
 
     with pytest.raises(PaymentIntentIdentifierCollisionError, match=payment_intent.id):
         await repo.create(payment_intent)
+
+
+@pytest.mark.asyncio()
+async def test_should_raise_on_not_existing_payment_intent_update(repo: DynamoDBPaymentIntentRepository) -> None:
+    payment_intent = PaymentIntent(
+        id="pi_123456",
+        state=PaymentIntentState.CREATED,
+        customer_id="cust_123456",
+        amount=100,
+        currency="USD",
+        version=0,
+    )
+
+    with pytest.raises(PaymentIntentNotFoundError, match=payment_intent.id):
+        await repo.update(payment_intent)
+
+    assert await repo.get("123456") is None
 
 
 @pytest.mark.asyncio()
@@ -77,18 +87,18 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
     )
     await repo.update(payment_intent)
 
-    db_payment_intent = await repo.get(payment_intent.id)
-    assert db_payment_intent
-    assert db_payment_intent.id == "pi_123456"
-    assert db_payment_intent.state == PaymentIntentState.CHARGED
-    assert db_payment_intent.customer_id == "cust_123456"
-    assert db_payment_intent.amount == 1481850
-    assert db_payment_intent.currency == "USD"
-    assert db_payment_intent.version == 1
+    assert await repo.get(payment_intent.id) == PaymentIntent(
+        id="pi_123456",
+        state=PaymentIntentState.CHARGED,
+        customer_id="cust_123456",
+        amount=1481850,
+        currency="USD",
+        version=1,
+    )
 
 
 @pytest.mark.asyncio()
-async def test_update_payment_intent_fails_on_optimistic_lock_error(repo: DynamoDBPaymentIntentRepository) -> None:
+async def test_optimistic_lock_handles_concurrent_payment_intent_updates(repo: DynamoDBPaymentIntentRepository) -> None:
     # Arrange
     payment_intent = PaymentIntent(
         id="pi_123456",
@@ -104,36 +114,22 @@ async def test_update_payment_intent_fails_on_optimistic_lock_error(repo: Dynamo
     await repo.update(payment_intent)  # Increments version in DynamoDB
 
     payment_intent = PaymentIntent(
-        id="pi_123456",
-        state=PaymentIntentState.CHARGE_FAILED,
-        customer_id="cust_123456",
-        amount=2963700,
-        currency="USD",
-        version=0,  # Attempt to update the item with old version
+        id=payment_intent.id,
+        state=PaymentIntentState.CHARGED,
+        customer_id="cust_999999",
+        amount=1481850,
+        currency="JPY",
+        version=0,
     )
     with pytest.raises(OptimisticLockError, match=payment_intent.id):
         await repo.update(payment_intent)
 
     # Assert
-    db_payment_intent = await repo.get(payment_intent.id)
-    assert db_payment_intent
-    assert db_payment_intent.state == PaymentIntentState.CREATED  # Not updated
-    assert db_payment_intent.amount == 100  # Not updated
-    assert db_payment_intent.version == 1
-
-
-@pytest.mark.asyncio()
-async def test_should_raise_on_not_existing_payment_intent_update(repo: DynamoDBPaymentIntentRepository) -> None:
-    payment_intent = PaymentIntent(
+    assert await repo.get(payment_intent.id) == PaymentIntent(
         id="pi_123456",
-        state=PaymentIntentState.CREATED,
+        state=PaymentIntentState.CREATED,  # Not updated
         customer_id="cust_123456",
-        amount=100,
+        amount=100,  # Not updated
         currency="USD",
-        version=0,
+        version=1,  # Updated by the first update
     )
-
-    with pytest.raises(PaymentIntentNotFoundError, match=payment_intent.id):
-        await repo.update(payment_intent)
-
-    assert await repo.get("123456") is None

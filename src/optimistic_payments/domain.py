@@ -62,3 +62,20 @@ class PaymentIntent:
             currency=currency,
             version=0,
         )
+
+    def change_amount(self, amount: int) -> None:
+        if self._state != PaymentIntentState.CREATED:
+            raise PaymentIntentStateError(f"Cannot change PaymentIntent amount in state: {self._state}")
+        self._amount = amount
+
+    def __eq__(self, __value: object) -> bool:
+        if not isinstance(__value, PaymentIntent):
+            return False
+        return (
+            self._id == __value._id
+            and self._state == __value._state
+            and self._customer_id == __value._customer_id
+            and self._amount == __value._amount
+            and self._currency == __value._currency
+            and self._version == __value._version
+        )
