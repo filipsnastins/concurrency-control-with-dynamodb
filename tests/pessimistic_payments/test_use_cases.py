@@ -3,10 +3,28 @@ from unittest.mock import Mock
 
 import pytest
 
-from pessimistic_payments.domain import PaymentIntentNotFoundError, PaymentIntentStateError
+from pessimistic_payments.domain import (
+    PaymentIntent,
+    PaymentIntentNotFoundError,
+    PaymentIntentState,
+    PaymentIntentStateError,
+)
 from pessimistic_payments.payment_gateway import PaymentGateway, PaymentGatewayError, PaymentGatewayErrorResponse
 from pessimistic_payments.repository import PaymentIntentRepository
 from pessimistic_payments.use_cases import charge_payment_intent, create_payment_intent, get_payment_intent
+
+
+@pytest.mark.asyncio()
+async def test_create_and_get_payment_intent(repo: PaymentIntentRepository) -> None:
+    payment_intent = await create_payment_intent("cust_123456", 100, "USD", repo)
+
+    assert await get_payment_intent(payment_intent.id, repo) == PaymentIntent(
+        id=payment_intent.id,
+        state=PaymentIntentState.CREATED,
+        customer_id="cust_123456",
+        amount=100,
+        currency="USD",
+    )
 
 
 @pytest.mark.asyncio()

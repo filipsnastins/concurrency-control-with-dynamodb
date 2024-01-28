@@ -23,13 +23,7 @@ async def test_create_and_get_payment_intent(repo: DynamoDBPaymentIntentReposito
 
     await repo.create(payment_intent)
 
-    db_payment_intent = await repo.get(payment_intent.id)
-    assert db_payment_intent
-    assert db_payment_intent.id == "pi_123456"
-    assert db_payment_intent.state == PaymentIntentState.CREATED
-    assert db_payment_intent.customer_id == "cust_123456"
-    assert db_payment_intent.amount == 100
-    assert db_payment_intent.currency == "USD"
+    assert await repo.get(payment_intent.id) == payment_intent
 
 
 @pytest.mark.asyncio()
@@ -68,13 +62,13 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
     )
     await repo.update(payment_intent)
 
-    db_payment_intent = await repo.get(payment_intent.id)
-    assert db_payment_intent
-    assert db_payment_intent.id == "pi_123456"
-    assert db_payment_intent.state == PaymentIntentState.CHARGED
-    assert db_payment_intent.customer_id == "cust_123456"
-    assert db_payment_intent.amount == 100
-    assert db_payment_intent.currency == "USD"
+    assert await repo.get(payment_intent.id) == PaymentIntent(
+        id=payment_intent.id,
+        state=PaymentIntentState.CHARGED,
+        customer_id="cust_123456",
+        amount=100,
+        currency="USD",
+    )
 
 
 @pytest.mark.asyncio()
