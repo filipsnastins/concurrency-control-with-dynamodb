@@ -28,3 +28,14 @@ async def change_payment_intent_amount(
     await repository.update(payment_intent)
 
     return payment_intent
+
+
+async def request_payment_request_charge(payment_intent_id: str, repository: PaymentIntentRepository) -> PaymentIntent:
+    payment_intent = await repository.get(payment_intent_id)
+    if not payment_intent:
+        raise PaymentIntentNotFoundError(payment_intent_id)
+
+    payment_intent.request_charge()
+    await repository.update(payment_intent)
+
+    return payment_intent

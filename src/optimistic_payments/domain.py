@@ -1,6 +1,8 @@
 import uuid
 from enum import StrEnum
 
+from .events import PaymentIntentChargeRequested, PaymentIntentEvent
+
 
 class PaymentIntentNotFoundError(Exception):
     pass
@@ -19,13 +21,21 @@ class PaymentIntentState(StrEnum):
 
 class PaymentIntent:
     def __init__(
-        self, id: str, state: PaymentIntentState, customer_id: str, amount: int, currency: str, version: int
+        self,
+        id: str,
+        state: PaymentIntentState,
+        customer_id: str,
+        amount: int,
+        currency: str,
+        events: list[PaymentIntentEvent],
+        version: int,
     ) -> None:
         self._id = id
         self._state = state
         self._customer_id = customer_id
         self._amount = amount
         self._currency = currency
+        self._events = events
         self._version = version
 
     @property
@@ -49,6 +59,10 @@ class PaymentIntent:
         return self._currency
 
     @property
+    def events(self) -> list[PaymentIntentEvent]:
+        return self._events
+
+    @property
     def version(self) -> int:
         return self._version
 
@@ -60,6 +74,7 @@ class PaymentIntent:
             customer_id=customer_id,
             amount=amount,
             currency=currency,
+            events=[],
             version=0,
         )
 
@@ -68,9 +83,20 @@ class PaymentIntent:
             raise PaymentIntentStateError(f"Cannot change PaymentIntent amount in state: {self._state}")
         self._amount = amount
 
+    def request_charge(self) -> None:
+        if self._state != PaymentIntentState.CREATED:
+            raise PaymentIntentStateError(f"Cannot charge PaymentIntent in state: {self._state}")
+        self._state = PaymentIntentState.CHARGE_REQUESTED
+        event = PaymentIntentChargeRequested(
+            payment_intent_id=self._id,
+            amount=self._amount,
+            currency=self._currency,
+        )
+        self._events.append(event)
+
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, PaymentIntent):
-            return False
+            raise NotImplementedError
         return (
             self._id == __value._id
             and self._state == __value._state
