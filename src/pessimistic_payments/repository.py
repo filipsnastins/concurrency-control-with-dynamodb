@@ -15,7 +15,7 @@ class PaymentIntentRepository(Protocol):
     async def lock(self, payment_intent: PaymentIntent) -> AsyncGenerator[None, None]:
         yield None  # pragma: no cover
 
-    async def get(self, payment_intent_id: str) -> PaymentIntent | None:
+    async def get(self, payment_intent_id: str) -> PaymentIntent:
         ...  # pragma: no cover
 
     async def create(self, payment_intent: PaymentIntent) -> None:
@@ -41,7 +41,7 @@ class DynamoDBPaymentIntentRepository:
         ):
             yield
 
-    async def get(self, payment_intent_id: str) -> PaymentIntent | None:
+    async def get(self, payment_intent_id: str) -> PaymentIntent:
         response = await self._client.get_item(
             TableName=self._table_name,
             Key={
@@ -52,7 +52,7 @@ class DynamoDBPaymentIntentRepository:
         )
         item = response.get("Item")
         if item is None:
-            return None
+            raise PaymentIntentNotFoundError(payment_intent_id)
         charge_item = json.loads(item["Charge"]["S"])
         return PaymentIntent(
             id=item["Id"]["S"],

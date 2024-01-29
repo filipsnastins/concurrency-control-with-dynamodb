@@ -1,13 +1,10 @@
-from .domain import PaymentIntent, PaymentIntentNotFoundError
+from .domain import PaymentIntent
 from .payment_gateway import PaymentGateway
 from .repository import PaymentIntentRepository
 
 
 async def get_payment_intent(payment_intent_id: str, repository: PaymentIntentRepository) -> PaymentIntent:
-    payment_intent = await repository.get(payment_intent_id)
-    if not payment_intent:
-        raise PaymentIntentNotFoundError(payment_intent_id)
-    return payment_intent
+    return await repository.get(payment_intent_id)
 
 
 async def create_payment_intent(
@@ -22,8 +19,6 @@ async def charge_payment_intent(
     payment_intent_id: str, repository: PaymentIntentRepository, payment_gateway: PaymentGateway
 ) -> PaymentIntent:
     payment_intent = await repository.get(payment_intent_id)
-    if not payment_intent:
-        raise PaymentIntentNotFoundError(payment_intent_id)
 
     async with repository.lock(payment_intent):
         await payment_intent.execute_charge(payment_gateway)

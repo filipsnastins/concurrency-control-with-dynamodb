@@ -7,9 +7,8 @@ from pessimistic_payments.repository import DynamoDBPaymentIntentRepository
 
 @pytest.mark.asyncio()
 async def test_get_not_existing_payment_intent(repo: DynamoDBPaymentIntentRepository) -> None:
-    payment_intent = await repo.get("123456")
-
-    assert payment_intent is None
+    with pytest.raises(PaymentIntentNotFoundError, match="pi_123456"):
+        await repo.get("pi_123456")
 
 
 @pytest.mark.parametrize(
@@ -107,4 +106,5 @@ async def test_should_raise_on_not_existing_payment_intent_update(repo: DynamoDB
     with pytest.raises(PaymentIntentNotFoundError, match=payment_intent.id):
         await repo.update(payment_intent)
 
-    assert await repo.get("123456") is None
+    with pytest.raises(PaymentIntentNotFoundError):
+        await repo.get("pi_123456")

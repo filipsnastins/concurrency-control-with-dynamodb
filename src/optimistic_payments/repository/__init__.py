@@ -12,7 +12,7 @@ __all__ = [
 
 
 class PaymentIntentRepository(Protocol):
-    async def get(self, payment_intent_id: str) -> PaymentIntent | None:
+    async def get(self, payment_intent_id: str) -> PaymentIntent:
         ...  # pragma: no cover
 
     async def create(self, payment_intent: PaymentIntent) -> None:

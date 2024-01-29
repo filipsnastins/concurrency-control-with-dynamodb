@@ -13,14 +13,14 @@ class DynamoDBPaymentIntentRepository:
         self._table_name = table_name
         self._lock = DynamoDBPessimisticLock(self._client, self._table_name)
 
-    async def get(self, payment_intent_id: str) -> PaymentIntent | None:
+    async def get(self, payment_intent_id: str) -> PaymentIntent:
         response = await self._client.get_item(
             TableName=self._table_name,
             Key=PaymentIntentDTO.key(payment_intent_id),
         )
         item = response.get("Item")
         if item is None:
-            return None
+            raise PaymentIntentNotFoundError(payment_intent_id)
         return PaymentIntentDTO.from_dynamodb_item(item).to_entity()
 
     async def create(self, payment_intent: PaymentIntent) -> None:
