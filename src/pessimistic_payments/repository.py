@@ -12,8 +12,8 @@ from .domain import Charge, PaymentIntent, PaymentIntentNotFoundError, PaymentIn
 
 class PaymentIntentRepository(Protocol):
     @asynccontextmanager
-    async def lock(self, payment_intent: PaymentIntent) -> AsyncGenerator[None, None]:
-        yield None  # pragma: no cover
+    async def lock(self, payment_intent_id: str) -> AsyncGenerator[PaymentIntent, None]:
+        yield  # type: ignore  # pragma: no cover
 
     async def get(self, payment_intent_id: str) -> PaymentIntent:
         ...  # pragma: no cover
@@ -32,14 +32,14 @@ class DynamoDBPaymentIntentRepository:
         self._lock = DynamoDBPessimisticLock(self._client, self._table_name)
 
     @asynccontextmanager
-    async def lock(self, payment_intent: PaymentIntent) -> AsyncGenerator[None, None]:
+    async def lock(self, payment_intent_id: str) -> AsyncGenerator[PaymentIntent, None]:
         async with self._lock(
             {
-                "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
+                "PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"},
                 "SK": {"S": "PAYMENT_INTENT"},
             }
         ):
-            yield
+            yield await self.get(payment_intent_id)
 
     async def get(self, payment_intent_id: str) -> PaymentIntent:
         response = await self._client.get_item(

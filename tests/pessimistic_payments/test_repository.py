@@ -106,5 +106,5 @@ async def test_should_raise_on_not_existing_payment_intent_update(repo: DynamoDB
     with pytest.raises(PaymentIntentNotFoundError, match=payment_intent.id):
         await repo.update(payment_intent)
 
-    with pytest.raises(PaymentIntentNotFoundError):
-        await repo.get("pi_123456")
+    with pytest.raises(PaymentIntentNotFoundError, match=payment_intent.id):
+        await repo.get(payment_intent.id)
