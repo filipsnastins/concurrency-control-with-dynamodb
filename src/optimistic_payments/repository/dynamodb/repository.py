@@ -17,6 +17,7 @@ class DynamoDBPaymentIntentRepository:
         response = await self._client.get_item(
             TableName=self._table_name,
             Key=PaymentIntentDTO.key(payment_intent_id),
+            ConsistentRead=True,
         )
         item = response.get("Item")
         if item is None:

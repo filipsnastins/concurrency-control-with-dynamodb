@@ -30,7 +30,6 @@ async def test_cannot_change_payment_intent_amount_when_payment_intent_is_not_in
     repo: PaymentIntentRepository,
 ) -> None:
     payment_intent = await create_payment_intent("cust_123456", 100, "USD", repo)
-
     await request_payment_request_charge(payment_intent.id, repo)
 
     with pytest.raises(PaymentIntentStateError, match="Cannot change PaymentIntent amount in state: CHARGE_REQUESTED"):

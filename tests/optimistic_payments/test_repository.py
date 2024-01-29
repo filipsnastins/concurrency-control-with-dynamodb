@@ -3,7 +3,7 @@ import json
 import pytest
 from botocore.exceptions import ClientError
 
-from optimistic_payments.domain import PaymentIntent, PaymentIntentNotFoundError, PaymentIntentState
+from optimistic_payments.domain import Charge, PaymentIntent, PaymentIntentNotFoundError, PaymentIntentState
 from optimistic_payments.events import PaymentIntentChargeRequested
 from optimistic_payments.repository import DynamoDBPaymentIntentRepository, OptimisticLockError
 from optimistic_payments.repository.dynamodb import PaymentIntentEventDTO
@@ -15,15 +15,23 @@ async def test_get_not_existing_payment_intent(repo: DynamoDBPaymentIntentReposi
         await repo.get("pi_123456")
 
 
+@pytest.mark.parametrize(
+    "charge",
+    [
+        None,
+        Charge(id="ch_123456", error_code=None, error_message=None),
+        Charge(id="ch_123456", error_code="card_declined", error_message="Insufficient funds."),
+    ],
+)
 @pytest.mark.asyncio()
-async def test_create_and_get_payment_intent(repo: DynamoDBPaymentIntentRepository) -> None:
+async def test_create_and_get_payment_intent(repo: DynamoDBPaymentIntentRepository, charge: Charge | None) -> None:
     payment_intent = PaymentIntent(
         id="pi_123456",
         state=PaymentIntentState.CREATED,
         customer_id="cust_123456",
         amount=100,
         currency="USD",
-        charge=None,
+        charge=charge,
         events=[],
         version=0,
     )
@@ -72,15 +80,23 @@ async def test_should_raise_on_not_existing_payment_intent_update(repo: DynamoDB
         await repo.get(payment_intent.id)
 
 
+@pytest.mark.parametrize(
+    "charge",
+    [
+        None,
+        Charge(id="ch_123456", error_code=None, error_message=None),
+        Charge(id="ch_123456", error_code="card_declined", error_message="Insufficient funds."),
+    ],
+)
 @pytest.mark.asyncio()
-async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> None:
+async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository, charge: Charge | None) -> None:
     payment_intent = PaymentIntent(
         id="pi_123456",
         state=PaymentIntentState.CREATED,
         customer_id="cust_123456",
         amount=100,
         currency="USD",
-        charge=None,
+        charge=Charge(id="ch_999999", error_code=None, error_message=None),
         events=[],
         version=0,
     )
@@ -92,7 +108,7 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
         customer_id="cust_999999",
         amount=1481850,
         currency="JPY",
-        charge=None,
+        charge=charge,
         events=[],
         version=0,
     )
@@ -104,7 +120,7 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
         customer_id="cust_123456",
         amount=1481850,
         currency="USD",
-        charge=None,
+        charge=charge,
         events=[],
         version=1,
     )

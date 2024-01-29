@@ -20,7 +20,7 @@ class PaymentIntentState(StrEnum):
     CHARGE_FAILED = "CHARGE_FAILED"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Charge:
     id: str
     error_code: str | None
@@ -111,6 +111,26 @@ class PaymentIntent:
             currency=self._currency,
         )
         self._events.append(event)
+
+    def handle_charge_response(  # TODO
+        self,
+        charge_id: str,
+        error_code: str | None,
+        error_message: str | None,
+    ) -> None:
+        if self._state != PaymentIntentState.CHARGE_REQUESTED:
+            raise PaymentIntentStateError(f"Cannot handle charge response when PaymentIntent in state: {self._state}")
+
+        if error_code is None:
+            self._state = PaymentIntentState.CHARGED
+        else:
+            self._state = PaymentIntentState.CHARGE_FAILED
+
+        self._charge = Charge(
+            id=charge_id,
+            error_code=error_code,
+            error_message=error_message,
+        )
 
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, PaymentIntent):

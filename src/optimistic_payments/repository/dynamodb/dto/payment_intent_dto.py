@@ -1,8 +1,10 @@
+import json
+from dataclasses import asdict
 from typing import Self
 
 from types_aiobotocore_dynamodb.type_defs import TransactWriteItemTypeDef, UniversalAttributeValueTypeDef
 
-from optimistic_payments.domain import PaymentIntent, PaymentIntentState
+from optimistic_payments.domain import Charge, PaymentIntent, PaymentIntentState
 
 from .base import BaseDTO
 from .payment_intent_event_dto import PaymentIntentEventDTO
@@ -16,6 +18,7 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
     CustomerId: str
     Amount: int
     Currency: str
+    Charge: str | None
     Events: list[PaymentIntentEventDTO]
     Version: int
 
@@ -36,6 +39,7 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
             CustomerId=payment_intent.customer_id,
             Amount=payment_intent.amount,
             Currency=payment_intent.currency,
+            Charge=json.dumps(asdict(payment_intent.charge)) if payment_intent.charge else None,
             Events=[PaymentIntentEventDTO.from_entity(event) for event in payment_intent.events],
             Version=payment_intent.version,
         )
@@ -47,7 +51,7 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
             customer_id=self.CustomerId,
             amount=self.Amount,
             currency=self.Currency,
-            charge=None,
+            charge=Charge(**json.loads(self.Charge)) if self.Charge else None,
             events=[],
             version=self.Version,
         )
@@ -60,15 +64,17 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
                     "PK": {"S": self.PK},
                     "SK": {"S": self.SK},
                 },
-                "UpdateExpression": "SET #State = :State, #Amount = :Amount, #Version = :Version",
+                "UpdateExpression": "SET #State = :State, #Amount = :Amount, #Charge = :Charge, #Version = :Version",
                 "ExpressionAttributeNames": {
                     "#State": "State",
                     "#Amount": "Amount",
+                    "#Charge": "Charge",
                     "#Version": "Version",
                 },
                 "ExpressionAttributeValues": {
                     ":State": {"S": self.State},
                     ":Amount": {"N": str(self.Amount)},
+                    ":Charge": {"S": self.Charge} if self.Charge else {"NULL": True},
                     ":Version": {"N": str(self.Version + 1)},
                 },
                 "ConditionExpression": "attribute_exists(Id)",
