@@ -21,6 +21,7 @@ async def test_create_payment_intent(repo: PaymentIntentRepository) -> None:
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
         events=[],
         version=0,
     )

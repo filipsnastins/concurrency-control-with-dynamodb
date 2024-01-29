@@ -3,7 +3,6 @@ from typing import Self
 from types_aiobotocore_dynamodb.type_defs import TransactWriteItemTypeDef, UniversalAttributeValueTypeDef
 
 from optimistic_payments.domain import PaymentIntent, PaymentIntentState
-from optimistic_payments.events import PaymentIntentEvent
 
 from .base import BaseDTO
 from .payment_intent_event_dto import PaymentIntentEventDTO
@@ -17,8 +16,8 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
     CustomerId: str
     Amount: int
     Currency: str
+    Events: list[PaymentIntentEventDTO]
     Version: int
-    Events: list[PaymentIntentEvent]
 
     @staticmethod
     def key(payment_intent_id: str) -> dict[str, UniversalAttributeValueTypeDef]:
@@ -28,7 +27,7 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
         }
 
     @classmethod
-    def from_aggregate(cls: type[Self], payment_intent: PaymentIntent) -> Self:
+    def from_entity(cls: type[Self], payment_intent: PaymentIntent) -> Self:
         return cls(
             PK=f"PAYMENT_INTENT#{payment_intent.id}",
             SK="PAYMENT_INTENT",
@@ -37,19 +36,20 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
             CustomerId=payment_intent.customer_id,
             Amount=payment_intent.amount,
             Currency=payment_intent.currency,
-            Events=payment_intent.events,
+            Events=[PaymentIntentEventDTO.from_entity(event) for event in payment_intent.events],
             Version=payment_intent.version,
         )
 
-    def to_aggregate(self) -> PaymentIntent:
+    def to_entity(self) -> PaymentIntent:
         return PaymentIntent(
             id=self.Id,
             state=self.State,
             customer_id=self.CustomerId,
             amount=self.Amount,
             currency=self.Currency,
-            version=self.Version,
+            charge=None,
             events=[],
+            version=self.Version,
         )
 
     def update_item_transact_request(self, table_name: str) -> TransactWriteItemTypeDef:
@@ -92,7 +92,4 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
         }
 
     def add_event_transact_requests(self, table_name: str) -> list[TransactWriteItemTypeDef]:
-        return [
-            PaymentIntentEventDTO.from_aggregate(event).create_item_transact_request(table_name)
-            for event in self.Events
-        ]
+        return [event.create_item_transact_request(table_name) for event in self.Events]

@@ -25,7 +25,7 @@ class PaymentIntentEventDTO(BaseDTO[PaymentIntentEvent]):
         }
 
     @classmethod
-    def from_aggregate(cls: type[Self], event: PaymentIntentEvent) -> Self:
+    def from_entity(cls: type[Self], event: PaymentIntentEvent) -> Self:
         return cls(
             PK=f"EVENT#{event.id}",
             SK="EVENT",
@@ -36,8 +36,8 @@ class PaymentIntentEventDTO(BaseDTO[PaymentIntentEvent]):
             Payload=json.dumps(event.to_dict()),
         )
 
-    def to_aggregate(self) -> PaymentIntentEvent:
-        raise NotImplementedError
+    def to_entity(self) -> PaymentIntentEvent:
+        raise NotImplementedError  # pragma: no cover
 
     def create_item_transact_request(self, table_name: str) -> TransactWriteItemTypeDef:
         return {

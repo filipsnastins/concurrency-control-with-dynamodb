@@ -24,6 +24,7 @@ async def test_create_and_get_payment_intent(repo: DynamoDBPaymentIntentReposito
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
         events=[],
         version=0,
     )
@@ -41,6 +42,7 @@ async def test_should_raise_on_already_existing_payment_intent_id(repo: DynamoDB
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
         events=[],
         version=0,
     )
@@ -59,6 +61,7 @@ async def test_should_raise_on_not_existing_payment_intent_update(repo: DynamoDB
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
         events=[],
         version=0,
     )
@@ -77,6 +80,7 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
         events=[],
         version=0,
     )
@@ -88,6 +92,7 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
         customer_id="cust_999999",
         amount=1481850,
         currency="JPY",
+        charge=None,
         events=[],
         version=0,
     )
@@ -99,6 +104,7 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository) -> N
         customer_id="cust_123456",
         amount=1481850,
         currency="USD",
+        charge=None,
         events=[],
         version=1,
     )
@@ -113,6 +119,7 @@ async def test_optimistic_lock_handles_concurrent_payment_intent_updates(repo: D
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
         events=[],
         version=0,
     )
@@ -127,6 +134,7 @@ async def test_optimistic_lock_handles_concurrent_payment_intent_updates(repo: D
         customer_id="cust_999999",
         amount=1481850,
         currency="JPY",
+        charge=None,
         events=[],
         version=0,
     )
@@ -140,6 +148,7 @@ async def test_optimistic_lock_handles_concurrent_payment_intent_updates(repo: D
         customer_id="cust_123456",
         amount=100,  # Not updated
         currency="USD",
+        charge=None,
         events=[],
         version=1,  # Updated by the first update
     )
@@ -158,6 +167,7 @@ async def test_publish_payment_intent_events(repo: DynamoDBPaymentIntentReposito
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
         events=[],
         version=0,
     )
@@ -169,6 +179,7 @@ async def test_publish_payment_intent_events(repo: DynamoDBPaymentIntentReposito
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
         events=[
             PaymentIntentChargeRequested(
                 id="evt_123456",
@@ -231,6 +242,7 @@ async def test_should_raise_on_already_existing_event_id(repo: DynamoDBPaymentIn
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
         events=[],
         version=0,
     )
@@ -242,6 +254,7 @@ async def test_should_raise_on_already_existing_event_id(repo: DynamoDBPaymentIn
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
         events=[
             PaymentIntentChargeRequested(
                 id="evt_123456",
@@ -260,6 +273,7 @@ async def test_should_raise_on_already_existing_event_id(repo: DynamoDBPaymentIn
         customer_id="cust_123456",
         amount=100,
         currency="USD",
+        charge=None,
         events=[
             PaymentIntentChargeRequested(
                 id="evt_123456",

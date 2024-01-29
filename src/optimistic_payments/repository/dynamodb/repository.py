@@ -17,15 +17,14 @@ class DynamoDBPaymentIntentRepository:
         response = await self._client.get_item(
             TableName=self._table_name,
             Key=PaymentIntentDTO.key(payment_intent_id),
-            ConsistentRead=True,
         )
         item = response.get("Item")
         if item is None:
             return None
-        return PaymentIntentDTO.from_dynamodb_item(item).to_aggregate()
+        return PaymentIntentDTO.from_dynamodb_item(item).to_entity()
 
     async def create(self, payment_intent: PaymentIntent) -> None:
-        payment_intent_dto = PaymentIntentDTO.from_aggregate(payment_intent)
+        payment_intent_dto = PaymentIntentDTO.from_entity(payment_intent)
         await self._client.put_item(
             TableName=self._table_name,
             Item=payment_intent_dto.to_dynamodb_item(),
@@ -34,7 +33,7 @@ class DynamoDBPaymentIntentRepository:
 
     async def update(self, payment_intent: PaymentIntent) -> None:
         try:
-            payment_intent_dto = PaymentIntentDTO.from_aggregate(payment_intent)
+            payment_intent_dto = PaymentIntentDTO.from_entity(payment_intent)
             await self._client.transact_write_items(
                 TransactItems=[
                     payment_intent_dto.update_item_transact_request(self._table_name),

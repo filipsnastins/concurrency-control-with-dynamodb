@@ -15,7 +15,7 @@ AggregateType = TypeVar("AggregateType")
 class BaseDTO(BaseModel, Generic[AggregateType]):
     @classmethod
     @abc.abstractmethod
-    def from_aggregate(cls: type[Self], aggregate: AggregateType) -> Self:
+    def from_entity(cls: type[Self], aggregate: AggregateType) -> Self:
         pass  # pragma: no cover
 
     @classmethod
@@ -23,7 +23,7 @@ class BaseDTO(BaseModel, Generic[AggregateType]):
         return cls(**{k: BOTO3_DESERIALIZER.deserialize(v) for k, v in item.items()})
 
     @abc.abstractmethod
-    def to_aggregate(self) -> AggregateType:
+    def to_entity(self) -> AggregateType:
         pass  # pragma: no cover
 
     def to_dynamodb_item(self) -> dict[str, AttributeValueTypeDef]:
