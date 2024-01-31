@@ -50,10 +50,10 @@ class DynamoDBPaymentIntentRepository:
                 raise OptimisticLockError(payment_intent.id) from e
             raise
 
-    async def get_event(self, event_id: str) -> PaymentIntentEventDTO | None:
+    async def get_event(self, payment_intent_id: str, event_id: str) -> PaymentIntentEventDTO | None:
         response = await self._client.get_item(
             TableName=self._table_name,
-            Key=PaymentIntentEventDTO.key(event_id),
+            Key=PaymentIntentEventDTO.key(payment_intent_id=payment_intent_id, event_id=event_id),
         )
         item = response.get("Item")
         if item is None:

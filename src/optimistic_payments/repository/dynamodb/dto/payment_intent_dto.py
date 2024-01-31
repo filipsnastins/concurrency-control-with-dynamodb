@@ -26,14 +26,14 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
     def key(payment_intent_id: str) -> dict[str, UniversalAttributeValueTypeDef]:
         return {
             "PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"},
-            "SK": {"S": "PAYMENT_INTENT"},
+            "SK": {"S": "#PAYMENT_INTENT"},
         }
 
     @classmethod
     def from_entity(cls: type[Self], payment_intent: PaymentIntent) -> Self:
         return cls(
             PK=f"PAYMENT_INTENT#{payment_intent.id}",
-            SK="PAYMENT_INTENT",
+            SK="#PAYMENT_INTENT",
             Id=payment_intent.id,
             State=payment_intent.state,
             CustomerId=payment_intent.customer_id,

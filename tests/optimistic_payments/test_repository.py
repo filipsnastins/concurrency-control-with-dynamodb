@@ -172,7 +172,7 @@ async def test_optimistic_lock_handles_concurrent_payment_intent_updates(repo: D
 
 @pytest.mark.asyncio()
 async def test_get_not_existing_payment_intent_event(repo: DynamoDBPaymentIntentRepository) -> None:
-    assert await repo.get_event("evt_123456") is None
+    assert await repo.get_event("pi_123456", "evt_123456") is None
 
 
 @pytest.mark.asyncio()
@@ -214,9 +214,9 @@ async def test_publish_payment_intent_events(repo: DynamoDBPaymentIntentReposito
     )
     await repo.update(payment_intent)
 
-    assert await repo.get_event("evt_123456") == PaymentIntentEventDTO(
-        PK="EVENT#evt_123456",
-        SK="EVENT",
+    assert await repo.get_event(payment_intent.id, "evt_123456") == PaymentIntentEventDTO(
+        PK="PAYMENT_INTENT#pi_123456",
+        SK="EVENT#evt_123456",
         Id="evt_123456",
         Name="PaymentIntentChargeRequested",
         AggregateId="pi_123456",
@@ -231,9 +231,9 @@ async def test_publish_payment_intent_events(repo: DynamoDBPaymentIntentReposito
             }
         ),
     )
-    assert await repo.get_event("evt_999999") == PaymentIntentEventDTO(
-        PK="EVENT#evt_999999",
-        SK="EVENT",
+    assert await repo.get_event(payment_intent.id, "evt_999999") == PaymentIntentEventDTO(
+        PK="PAYMENT_INTENT#pi_123456",
+        SK="EVENT#evt_999999",
         Id="evt_999999",
         Name="PaymentIntentChargeRequested",
         AggregateId="pi_123456",

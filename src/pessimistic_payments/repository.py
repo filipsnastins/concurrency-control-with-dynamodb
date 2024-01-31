@@ -36,7 +36,7 @@ class DynamoDBPaymentIntentRepository:
         async with self._lock(
             {
                 "PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"},
-                "SK": {"S": "PAYMENT_INTENT"},
+                "SK": {"S": "#PAYMENT_INTENT"},
             }
         ):
             yield await self.get(payment_intent_id)
@@ -46,7 +46,7 @@ class DynamoDBPaymentIntentRepository:
             TableName=self._table_name,
             Key={
                 "PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"},
-                "SK": {"S": "PAYMENT_INTENT"},
+                "SK": {"S": "#PAYMENT_INTENT"},
             },
             ConsistentRead=True,
         )
@@ -68,7 +68,7 @@ class DynamoDBPaymentIntentRepository:
             TableName=self._table_name,
             Item={
                 "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
-                "SK": {"S": "PAYMENT_INTENT"},
+                "SK": {"S": "#PAYMENT_INTENT"},
                 "Id": {"S": payment_intent.id},
                 "State": {"S": payment_intent.state},
                 "CustomerId": {"S": payment_intent.customer_id},
@@ -85,7 +85,7 @@ class DynamoDBPaymentIntentRepository:
                 TableName=self._table_name,
                 Key={
                     "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
-                    "SK": {"S": "PAYMENT_INTENT"},
+                    "SK": {"S": "#PAYMENT_INTENT"},
                 },
                 UpdateExpression="SET #State = :State, #Charge = :Charge",
                 ExpressionAttributeNames={

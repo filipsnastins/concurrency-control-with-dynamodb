@@ -18,17 +18,17 @@ class PaymentIntentEventDTO(BaseDTO[PaymentIntentEvent]):
     Payload: str
 
     @staticmethod
-    def key(event_id: str) -> dict[str, UniversalAttributeValueTypeDef]:
+    def key(payment_intent_id: str, event_id: str) -> dict[str, UniversalAttributeValueTypeDef]:
         return {
-            "PK": {"S": f"EVENT#{event_id}"},
-            "SK": {"S": "EVENT"},
+            "PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"},
+            "SK": {"S": f"EVENT#{event_id}"},
         }
 
     @classmethod
     def from_entity(cls: type[Self], event: PaymentIntentEvent) -> Self:
         return cls(
-            PK=f"EVENT#{event.id}",
-            SK="EVENT",
+            PK=f"PAYMENT_INTENT#{event.payment_intent_id}",
+            SK=f"EVENT#{event.id}",
             Id=event.id,
             Name=event.name,
             AggregateId=event.payment_intent_id,
