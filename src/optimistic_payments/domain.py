@@ -112,12 +112,7 @@ class PaymentIntent:
         )
         self._events.append(event)
 
-    def handle_charge_response(  # TODO
-        self,
-        charge_id: str,
-        error_code: str | None,
-        error_message: str | None,
-    ) -> None:
+    def handle_charge_response(self, charge_id: str, error_code: str | None, error_message: str | None) -> None:
         if self._state != PaymentIntentState.CHARGE_REQUESTED:
             raise PaymentIntentStateError(f"Cannot handle charge response when PaymentIntent in state: {self._state}")
 
