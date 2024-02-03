@@ -2,7 +2,8 @@
 
 Concurrency control ensures that concurrent operations are executed correctly and with optimal performance.
 The concurrency control mechanisms are necessary in a system that allows concurrent writes to the same resources.
-Such systems are, for example, web applications where reads and writes (`GET` and `POST` requests) are executed in separate requests and database transactions.
+Such systems are, for example, web applications where reads and writes (`GET` and `POST` requests)
+are executed in separate requests and database transactions.
 
 A business operation might span multiple database transactions,
 but [ACID](https://en.wikipedia.org/wiki/ACID) guarantees are provided only within a single database transaction.
@@ -11,9 +12,22 @@ will hold locks on records for a long time, impacting performance and scalabilit
 
 To prevent data corruption anomalies such as lost updates, application-level concurrency control mechanisms become mandatory.
 
+- [Concurrency Control and Database Locks with DynamoDB](#concurrency-control-and-database-locks-with-dynamodb)
+  - [Example Application - Payments System](#example-application---payments-system)
+  - [Concurrent Operation Example - Charge and Change Amount](#concurrent-operation-example---charge-and-change-amount)
+  - [Concurrency Control Mechanisms](#concurrency-control-mechanisms)
+    - [Pessimistic Locking with Two-Phase Lock](#pessimistic-locking-with-two-phase-lock)
+      - [Two-Phase Lock with DynamoDB](#two-phase-lock-with-dynamodb)
+      - [Drawbacks of Pessimistic Locking](#drawbacks-of-pessimistic-locking)
+    - [Optimistic Locking with Incrementing Version Number and Semantic Lock](#optimistic-locking-with-incrementing-version-number-and-semantic-lock)
+  - [Request Idempotence](#request-idempotence)
+  - [Draft](#draft)
+  - [Resources](#resources)
+
 ## Example Application - Payments System
 
-We'll explore application-level concurrency control mechanisms in the fictional Payment System example. The example application code is in [src/](src/), and their tests in the [tests/](tests/) directories.
+We'll explore application-level concurrency control mechanisms in the fictional Payment System example.
+The example application code is in [src/](src/), and their tests in the [tests/](tests/) directories.
 
 In the Payment System, the user can create a `PaymentIntent` - an entity for managing a payment's lifecycle.
 The user creates a `PaymentIntent` when they want to pay for some product or service.
@@ -22,7 +36,8 @@ The actual charge operation is performed by an external service - the Payment Ga
 
 As a datastore, we'll use [DynamoDB](https://aws.amazon.com/dynamodb/) - NoSQL key-value database.
 The same principles of application-level concurrency control can be applied to most databases - relational or NoSQL.
-Using a distributed NoSQL database like DynamoDB in this example will showcase some interesting aspects of managing concurrency and eventual consistency.
+Using a distributed NoSQL database like DynamoDB in this example will showcase
+some interesting aspects of managing concurrency and eventual consistency.
 
 ![Container Diagram - Payments System](./docs/architecture/c4/level_2_container/payments_system.png)
 
@@ -30,7 +45,8 @@ The `PaymentIntent` has three states:
 
 - `CREATED` - the initial state; amount change is possible only when the `PaymentIntent` is in this state.
 
-- `CHARGED` - the Payment Gateway has successfully withdrawn funds from the user's account; changing the `PaymentIntent` amount is no longer possible.
+- `CHARGED` - the Payment Gateway has successfully withdrawn funds from the user's account;
+  changing the `PaymentIntent` amount is no longer possible.
 
 - `CHARGE_FAILED` - Payment Gateway failed to charge the user, for example, due to insufficient funds on the user's account.
 
@@ -43,6 +59,7 @@ stateDiagram-v2
 
     CREATED --> CHARGED
     CREATED --> CHARGE_FAILED
+
     CHARGED --> [*]
     CHARGE_FAILED --> [*]
 ```
@@ -53,10 +70,11 @@ Let's see what can happen when two concurrent operations are performed without a
 
 In the example, a user creates a `PaymentIntent` of $100, initiates the charge operation,
 and simultaneously changes the amount to $200, for examples, by quickly adding a new item to a shopping card.
-Since the charge involves an external service, the Payment Gateway, it takes more time to complete than
-changing the amount. While processing the $100 charge, the amount has been changed to $200.
+Since the charge involves an external service, the Payment Gateway, it takes more time to complete than changing the amount.
+While processing the $100 charge, the amount has been changed to $200.
 When the successful charge response arrives from the Payment Gateway, the `PaymentIntent` is marked as `CHARGED`.
-In the end, the $200 `PaymentIntent` is marked as `CHARGED` in the Payment System, while only $100 was withdrawn from the user's account.
+In the end, the $200 `PaymentIntent` is marked as `CHARGED` in the Payment System,
+while only $100 was withdrawn from the user's account.
 
 ```mermaid
 sequenceDiagram
@@ -89,6 +107,34 @@ sequenceDiagram
 There are two application-level concurrency control mechanisms: pessimistic and optimistic locking.
 The former implements conflict avoidance and the latter - conflict detection.
 
+The following examples will implement the pessimistic and optimistic locking inside a Repository (infrastructure layer).
+The [Repository](https://martinfowler.com/eaaCatalog/repository.html) is an abstraction over the data access layer
+that hides the mechanics of a particular database technology and provides a clean interface for
+querying and persisting business objects.
+
+Encapsulating the concurrency control mechanisms inside the Repository
+has an advantage of hiding the complexity of concurrency control from the business logic code.
+This way, from the domain layer point of view, concurrency doesn't exist -
+when the code is running, it assumes it's the only running process at that time.
+This greatly simplifies the domain layer code and makes it less cluttered with infrastructure concerns.
+
+Concurrency control mechanisms add an additional overhead to the database layer -
+additional reads, writes, and conditional checks. Therefore, the downside of encapsulating concurrency control
+inside the Repository is that the concurrency control will always be used on database writes,
+including scenarios where data write anomalies can't occur due to how the application and business logic is designed.
+In that case, the additional resources spent on ensuring data correctness are wasted,
+rendering the system less performant and more resource intensive.
+
+Another approach to concurrency control is to apply it selectively where necessary or omit it altogether.
+In some use cases, it's possible to order a system's operations and design business objects
+in a way that minimize or eliminate concurrency anomalies. Shifting some concurrency control mechanisms
+to the domain layer can help optimize necessary parts of the application. This approach is useful
+in high-performance and low-latency systems, where additional performance overhead of traditional
+pessimistic and optimistic concurrency control mechanisms is intolerable.
+This excellent talk about [eventual consistency](https://www.infoq.com/presentations/eventual-consistent/)
+by Susanne Braun gives many practical examples on designing systems in the context of
+Domain-Driven Design, distributed systems and eventual consistency.
+
 ### Pessimistic Locking with Two-Phase Lock
 
 > [!NOTE]
@@ -100,16 +146,24 @@ The former implements conflict avoidance and the latter - conflict detection.
 >
 > DynamoDB pessimistic lock tests: [tests/database_locks/](tests/database_locks/)
 
-The pessimistic locking assumes that conflicts will happen and tries to prevent them by acquiring a unique lock on a resource before attempting to modify it.
+The pessimistic locking assumes that conflicts will happen and tries to prevent them
+by acquiring a unique lock on a resource before attempting to modify it.
+The pessimistic lock is usually used in cases where conflicts are bound to happen,
+or where retry operations due to
 
-To ensure that no other concurrent request will modify the data, only one actor (user, HTTP request, etc.) can hold the lock at the same time.
+To ensure that no other concurrent request will modify the data,
+only one actor (user, HTTP request, etc.) can hold the lock at the same time.
+
 An exception is raised if the lock is already acquired, and the caller must determine an appropriate retry strategy -
 pause the request and retry later, usually with exponential backoff, or fail the request and let the caller retry.
-After acquiring the lock, it's essential to query the latest instances of the objects from the datastore to ensure that
-business decisions will be made on the most recent data. In eventually consistent databases like DynamoDB it will
-require the use of [strongly consistent reads](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html).
 
-In the [two-phase locking](https://en.wikipedia.org/wiki/Two-phase_locking) protocol, the locks are acquired and released in two phases:
+After acquiring the lock, it's essential to query the latest instances of the objects from the datastore to ensure that
+business decisions will be made on the most recent data.
+In eventually consistent databases like DynamoDB it will require the use of
+[strongly consistent reads](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html).
+
+In the [two-phase locking](https://en.wikipedia.org/wiki/Two-phase_locking) protocol,
+the locks are acquired and released in two phases:
 
 1. Expanding phase - locks are acquired, and no locks are released.
 2. Shrinking phase - locks are released, and no other lock is further acquired.
@@ -120,9 +174,9 @@ The two basic types of two-phase locks are:
 - Exclusive (write) lock - prevents both reads and writes.
 
 Using pessimistic locking, we can resolve the problem with concurrent "charge and change amount" requests.
-In this example, the "Charge `PaymentIntent`" request acquires a lock on the `PaymentIntent` before attempting to initiate the charge request,
-ensuring that no other request is currently modifying the `PaymentIntent` at the same time.
-The concurrent "Change `PaymentIntent` amount" request failed because it could not acquire the lock.
+In this example, the "Charge `PaymentIntent`" request acquires a lock on the `PaymentIntent` before attempting
+to initiate the charge request, ensuring that no other request is currently modifying the `PaymentIntent` at the same time.
+The "Change `PaymentIntent` amount" request failed because it could not acquire the lock.
 
 ```mermaid
 sequenceDiagram
@@ -179,8 +233,9 @@ async with lock(key={"PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"}, "SK": {
     ...
 ```
 
-The lock can be set to expire with the `lock_timeout` parameter. It might be useful to enable automatic retries in case of unreleased locks,
-e.g., in case of temporary DynamoDB error or ungraceful application shutdown.
+The lock can be set to expire with the `lock_timeout` parameter.
+It might be useful to support automatic retries in case of unreleased locks, e.g.,
+in case of temporary DynamoDB error or application crash.
 
 ```python
 from datetime import timedelta
@@ -209,7 +264,7 @@ async with repository.lock("pi_123456") as payment_intent:
 
 Now, we can test that the application's use cases are executed one at a time;
 for example, two concurrent `charge_payment_intent` requests result in only one call to the Payment Gateway.
-The tests are unaware that the pessimistic locks are used for concurrency control, so the implementation details are not exposed.
+The tests are unaware that the pessimistic locks are used for concurrency control, so this implementation detail is not exposed.
 
 ```python
 from pessimistic_payments.use_cases import charge_payment_intent, create_payment_intent
@@ -240,6 +295,10 @@ TODO
 > Application code: [src/optimistic_payments/](src/optimistic_payments/)
 >
 > Application tests: [tests/optimistic_payments/](tests/optimistic_payments/)
+
+TODO
+
+## Request Idempotence
 
 TODO
 
@@ -280,3 +339,5 @@ TODO
 - Article: [Implementing optimistic locking in DynamoDB with Python](https://www.tecracer.com/blog/2021/07/implementing-optimistic-locking-in-dynamodb-with-python.html)
 
 - Article: [Implement resource counters with Amazon DynamoDB](https://aws.amazon.com/blogs/database/implement-resource-counters-with-amazon-dynamodb/)
+
+- Talk: [Eventual Consistency – Don’t Be Afraid!](https://www.infoq.com/presentations/eventual-consistent/)
