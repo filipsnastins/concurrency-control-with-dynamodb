@@ -1,0 +1,16 @@
+@startuml
+!include <C4/C4_Container>
+
+!procedure paymentsAppContainer()
+    Container(paymentsApp, "Payments Web App", "Python")
+!endprocedure
+
+!procedure dynamoDbContainer()
+    ContainerDb(dynamoDb, "DynamoDB key-value database", "DynamoDB", "Datastore.")
+!endprocedure
+
+!procedure paymentGatewayAppContainer()
+    Container_Ext(paymentGatewayApp, "Payment Gateway", "", "Withdraws money from the customer's account.")
+!endprocedure
+
+@enduml
