@@ -78,6 +78,12 @@ class PaymentIntent:
             charge=None,
         )
 
+    def change_amount(self, amount: int) -> None:
+        if self._state != PaymentIntentState.CREATED:
+            raise PaymentIntentStateError(f"Cannot change PaymentIntent amount in state: {self._state}")
+
+        self._amount = amount
+
     async def execute_charge(self, payment_gateway: PaymentGateway) -> None:
         if self._state != PaymentIntentState.CREATED:
             raise PaymentIntentStateError(f"PaymentIntent is not in a chargeable state: {self._state}")

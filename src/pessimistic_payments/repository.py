@@ -15,14 +15,11 @@ class PaymentIntentRepository(Protocol):
     async def lock(self, payment_intent_id: str) -> AsyncGenerator[PaymentIntent, None]:
         yield  # type: ignore  # pragma: no cover
 
-    async def get(self, payment_intent_id: str) -> PaymentIntent:
-        ...  # pragma: no cover
+    async def get(self, payment_intent_id: str) -> PaymentIntent: ...  # pragma: no cover
 
-    async def create(self, payment_intent: PaymentIntent) -> None:
-        ...  # pragma: no cover
+    async def create(self, payment_intent: PaymentIntent) -> None: ...  # pragma: no cover
 
-    async def update(self, payment_intent: PaymentIntent) -> None:
-        ...  # pragma: no cover
+    async def update(self, payment_intent: PaymentIntent) -> None: ...  # pragma: no cover
 
 
 class DynamoDBPaymentIntentRepository:
@@ -87,13 +84,15 @@ class DynamoDBPaymentIntentRepository:
                     "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
                     "SK": {"S": "#PAYMENT_INTENT"},
                 },
-                UpdateExpression="SET #State = :State, #Charge = :Charge",
+                UpdateExpression="SET #State = :State, #Amount = :Amount, #Charge = :Charge",
                 ExpressionAttributeNames={
                     "#State": "State",
+                    "#Amount": "Amount",
                     "#Charge": "Charge",
                 },
                 ExpressionAttributeValues={
                     ":State": {"S": payment_intent.state},
+                    ":Amount": {"N": str(payment_intent.amount)},
                     ":Charge": {"S": json.dumps(asdict(payment_intent.charge) if payment_intent.charge else {})},
                 },
                 ConditionExpression="attribute_exists(Id)",

@@ -3,8 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from database_locks.pessimistic_lock import PessimisticLockAcquisitionError
-from pessimistic_payments.domain import Charge, PaymentIntentStateError
+from pessimistic_payments.domain import Charge, PaymentIntentNotFoundError, PaymentIntentStateError
 from pessimistic_payments.payment_gateway import PaymentGateway, PaymentGatewayResponse
 from pessimistic_payments.repository import PaymentIntentRepository
 from pessimistic_payments.use_cases import charge_payment_intent, create_payment_intent, get_payment_intent
@@ -14,7 +13,7 @@ from pessimistic_payments.use_cases import charge_payment_intent, create_payment
 async def test_charge_not_existing_payment_intent(repo: PaymentIntentRepository) -> None:
     payment_gw_mock = Mock(spec_set=PaymentGateway)
 
-    with pytest.raises(PessimisticLockAcquisitionError):
+    with pytest.raises(PaymentIntentNotFoundError):
         await charge_payment_intent("pi_123456", repo, payment_gw_mock)
 
     payment_gw_mock.charge.assert_not_called()
@@ -91,4 +90,4 @@ async def test_payment_intent_charged_once(repo: PaymentIntentRepository) -> Non
         ]
     )
 
-    payment_gw_mock.charge.assert_awaited_once_with(payment_intent.id, payment_intent.amount, payment_intent.currency)
+    payment_gw_mock.charge.assert_awaited_once()

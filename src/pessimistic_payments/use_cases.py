@@ -15,9 +15,23 @@ async def create_payment_intent(
     return payment_intent
 
 
+async def change_payment_intent_amount(
+    payment_intent_id: str, amount: int, repository: PaymentIntentRepository
+) -> PaymentIntent:
+    await repository.get(payment_intent_id)
+
+    async with repository.lock(payment_intent_id) as payment_intent:
+        payment_intent.change_amount(amount)
+        await repository.update(payment_intent)
+
+    return payment_intent
+
+
 async def charge_payment_intent(
     payment_intent_id: str, repository: PaymentIntentRepository, payment_gateway: PaymentGateway
 ) -> PaymentIntent:
+    await repository.get(payment_intent_id)
+
     async with repository.lock(payment_intent_id) as payment_intent:
         await payment_intent.execute_charge(payment_gateway)
         await repository.update(payment_intent)

@@ -86,7 +86,7 @@ async def test_update_payment_intent(repo: DynamoDBPaymentIntentRepository, char
         id=payment_intent.id,
         state=PaymentIntentState.CHARGED,
         customer_id="cust_123456",
-        amount=100,
+        amount=1481850,
         currency="USD",
         charge=charge,
     )
