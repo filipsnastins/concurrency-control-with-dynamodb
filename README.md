@@ -304,12 +304,12 @@ Read more about explicit locking in PostgreSQL at <https://www.postgresql.org/do
 ```sql
 BEGIN;
 
-SELECT id, "state", customer_id, amount, currency
+SELECT id, state, customer_id, amount, currency
 FROM payment_intents
 WHERE id = 'pi_123456'
-FOR UPDATE; -- acquires an exclusive lock on the row, preventing other transactions from reading and modifying it
+FOR UPDATE; -- acquires an exclusive lock and prevents other transactions from reading and modifying the row
 
-UPDATE payment_intents SET "state" = 'CHARGED' WHERE id = 'pi_123456';
+UPDATE payment_intents SET state = 'CHARGED' WHERE id = 'pi_123456';
 
 COMMIT;
 ```
