@@ -21,6 +21,8 @@ To prevent data corruption anomalies such as lost updates, application-level con
       - [Two-Phase Lock with Relational Databases](#two-phase-lock-with-relational-databases)
       - [Drawbacks of Pessimistic Locking](#drawbacks-of-pessimistic-locking)
     - [Optimistic Locking with Incrementing Version Number and Semantic Lock](#optimistic-locking-with-incrementing-version-number-and-semantic-lock)
+      - [Optimistic Locking with DynamoDB](#optimistic-locking-with-dynamodb)
+      - [Optimistic Locking with Relational Databases](#optimistic-locking-with-relational-databases)
   - [Note on Request Idempotence](#note-on-request-idempotence)
   - [Resources](#resources)
 
@@ -78,7 +80,7 @@ while only $100 was withdrawn from the user's account.
 
 ```mermaid
 sequenceDiagram
-    participant User
+    actor User
     participant PaymentIntent
     participant PaymentGateway
 
@@ -160,7 +162,7 @@ or fail the request and let the caller retry.
 
 After acquiring the lock, it's essential to query the latest instances of the objects from the datastore again
 to ensure that business decisions will be made on the most recent data.
-In eventually consistent databases like DynamoDB it will require the use of
+In distributed and eventually consistent databases like DynamoDB it will require the use of
 [strongly consistent reads](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html).
 
 In the [two-phase locking](https://en.wikipedia.org/wiki/Two-phase_locking) protocol,
@@ -181,7 +183,7 @@ The "Change `PaymentIntent` amount" request failed because it could not acquire 
 
 ```mermaid
 sequenceDiagram
-    participant User
+    actor User
     participant PaymentIntent
     participant PaymentGateway
 
@@ -333,6 +335,72 @@ TODO
 
 - Incrementing version number
 - Semantic lock & transactional outbox for making charge request
+- When using optimistic locking, your business operation must be encapsulated in the unit of work
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant PaymentIntent
+    participant DynamoDB
+
+    User->>PaymentIntent: Create PaymentIntent of $100
+    activate PaymentIntent
+    PaymentIntent->>DynamoDB: Save PaymentIntent (set new version = 0)
+    DynamoDB->>PaymentIntent: Saved
+    PaymentIntent->>User: PaymentIntent created
+    deactivate PaymentIntent
+
+    User->>PaymentIntent: Charge PaymentIntent
+    activate PaymentIntent
+    PaymentIntent->>DynamoDB: Get PaymentIntent
+    DynamoDB->>PaymentIntent: Get PaymentIntent (state = 'CREATED', version = 0)
+
+    PaymentIntent->>PaymentIntent: Transaction: update state to 'CHARGE_REQUESTED'
+    PaymentIntent->>PaymentIntent: Transaction: create PaymentIntentChargeRequested event
+    PaymentIntent->>DynamoDB: Commit 'charge PaymentIntent' (check current version == 0, set new version = 1)
+
+    User->>PaymentIntent: Change PaymentIntent amount to $200
+    activate PaymentIntent
+
+    DynamoDB->>DynamoDB: Committing 'charge PaymentIntent'...
+
+    PaymentIntent->>DynamoDB: Get PaymentIntent
+    DynamoDB->>PaymentIntent: Get PaymentIntent (state = 'CREATED', version = 0)
+    PaymentIntent->>PaymentIntent: Transaction: update amount to $200
+    deactivate PaymentIntent
+
+    DynamoDB->>PaymentIntent: Committed 'charge PaymentIntent' (current version = 1)
+    PaymentIntent->>User: PaymentIntent charge requested
+
+    activate PaymentIntent
+    PaymentIntent->>DynamoDB: Commit 'change PaymentIntent amount' (check version == 0, new version = 1)
+
+    DynamoDB->>DynamoDB: Committing 'change PaymentIntent amount'...
+    DynamoDB->>PaymentIntent: Failed to commit 'change PaymentIntent amount' (current version != 0)
+
+    PaymentIntent->>User: Couldn't change PaymentIntent amount due to write conflict
+    deactivate PaymentIntent
+    deactivate PaymentIntent
+
+    User->>User: Retrying...
+    User->>PaymentIntent: Change PaymentIntent amount to $200
+
+    activate PaymentIntent
+    PaymentIntent->>DynamoDB: Get PaymentIntent
+    DynamoDB->>PaymentIntent: Get PaymentIntent (state = 'CHARGE_REQUESTED', version = 1)
+    PaymentIntent->>User: Cannot change PaymentIntent amount in state 'CHARGE_REQUESTED'
+    deactivate PaymentIntent
+
+
+```
+
+#### Optimistic Locking with DynamoDB
+
+TODO
+
+#### Optimistic Locking with Relational Databases
+
+TODO
 
 ## Note on Request Idempotence
 
