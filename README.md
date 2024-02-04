@@ -338,6 +338,23 @@ TODO
 - When using optimistic locking, your business operation must be encapsulated in the unit of work
 
 ```mermaid
+---
+title: PaymentIntent states updated with semantic lock
+---
+stateDiagram-v2
+    CHARGE_REQUESTED: CHARGE_REQUESTED (semantic lock)
+
+    [*] --> CREATED
+    CREATED --> CHARGE_REQUESTED
+
+    CHARGE_REQUESTED --> CHARGED
+    CHARGE_REQUESTED --> CHARGE_FAILED
+
+    CHARGED --> [*]
+    CHARGE_FAILED --> [*]
+```
+
+```mermaid
 sequenceDiagram
     actor User
     participant PaymentIntent
@@ -346,7 +363,7 @@ sequenceDiagram
     User->>PaymentIntent: Create PaymentIntent of $100
     activate PaymentIntent
     PaymentIntent->>DynamoDB: Save PaymentIntent (set new version = 0)
-    DynamoDB->>PaymentIntent: Saved
+    DynamoDB->>PaymentIntent: Saved (state = 'CREATED', version = 0)
     PaymentIntent->>User: PaymentIntent created
     deactivate PaymentIntent
 
@@ -390,8 +407,6 @@ sequenceDiagram
     DynamoDB->>PaymentIntent: Get PaymentIntent (state = 'CHARGE_REQUESTED', version = 1)
     PaymentIntent->>User: Cannot change PaymentIntent amount in state 'CHARGE_REQUESTED'
     deactivate PaymentIntent
-
-
 ```
 
 #### Optimistic Locking with DynamoDB
