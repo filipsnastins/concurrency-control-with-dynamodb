@@ -232,9 +232,14 @@ lock = DynamoDBPessimisticLock(dynamodb_client, table_name="payment-intents")
 
 repository = DynamoDBPaymentIntentRepository(dynamodb_client, table_name="payment-intents")
 
-# Content manager acquires a lock on DynamoDB item on enter and releases the lock on exit
-async with lock(key={"PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"}, "SK": {"S": "#PAYMENT_INTENT"}}):
-    # Get the fresh instance of the item after aquiring the lock to ensure you're working with latest data
+# Content manager acquires a lock on a DynamoDB item on enter and releases the lock on exit
+async with lock(
+    key={
+        "PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"},
+        "SK": {"S": "#PAYMENT_INTENT"},
+    }
+):
+    # Query the fresh instance of the item to ensure you're working with latest data
     # Requires use of DynamoDB's strongly consistent read to prevent querying stale data
     payment_intent = await repository.get("pi_123456")
 
@@ -318,11 +323,19 @@ COMMIT;
 
 #### Drawbacks of Pessimistic Locking
 
-TODO
+Since pessimistic locks provide access to a resource modification to a single request at a time,
+it results in a performance and throughput penalty. Lock acquisition is a multiple-step process:
+acquire a lock, query the objects, and release the lock. While the lock is held, other
+requests will fail or will be continuously retried until they succeed. It increases contention and latency.
+Even if no conflicts would've occurred between the concurrent requests, they still must wait for their turn to acquire the lock.
 
-- [ ] Throughput and performance penalty
-- [ ] Deadlocks
-- [ ] Overkill in many cases
+When using pessimistic locks with DynamoDB, the application can't take advantage of the database's
+eventual consistency data model. Using pessimistic locking as the primary concurrency control mechanism in DynamoDB
+strips away the benefits of using a distributed database. The optimistic concurrency control mechanism,
+described in the next section, better aligns with DynamoDB's data modeling approach.
+
+The pessimistic locking still has its use cases when using DynamoDB or any other database,
+for example, when concurrency conflicts happen often and the operation is expensive to retry.
 
 ### Optimistic Locking with Incrementing Version Number and Semantic Lock
 
@@ -336,6 +349,9 @@ TODO
 - Incrementing version number
 - Semantic lock & transactional outbox for making charge request
 - When using optimistic locking, your business operation must be encapsulated in the unit of work
+- When using optimistic locking, the request must not issue any destructive operations outside of the
+  transaction (unit of work), for example, making the charge request to the external Payment Gateway
+- Provides monotonic updates
 
 ```mermaid
 ---
