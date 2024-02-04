@@ -18,20 +18,20 @@ To prevent data corruption anomalies such as lost updates, application-level con
   - [Concurrency Control Mechanisms](#concurrency-control-mechanisms)
     - [Pessimistic Locking with Two-Phase Lock](#pessimistic-locking-with-two-phase-lock)
       - [Two-Phase Lock with DynamoDB](#two-phase-lock-with-dynamodb)
+      - [Two-Phase Lock with Relational Databases](#two-phase-lock-with-relational-databases)
       - [Drawbacks of Pessimistic Locking](#drawbacks-of-pessimistic-locking)
     - [Optimistic Locking with Incrementing Version Number and Semantic Lock](#optimistic-locking-with-incrementing-version-number-and-semantic-lock)
-  - [Request Idempotence](#request-idempotence)
-  - [Draft](#draft)
+  - [Note on Request Idempotence](#note-on-request-idempotence)
   - [Resources](#resources)
 
 ## Example Application - Payments System
 
-We'll explore application-level concurrency control mechanisms in the fictional Payment System example.
-The example application code is in [src/](src/), and their tests in the [tests/](tests/) directories.
+We'll explore application-level concurrency control mechanisms in the fictional Payments System example.
+The example application code is in [src/](src/), and their tests are in the [tests/](tests/) directories.
 
-In the Payment System, the user can create a `PaymentIntent` - an entity for managing a payment's lifecycle.
+In the Payments System, a user can create a `PaymentIntent` - an entity for managing a payment's lifecycle.
 The user creates a `PaymentIntent` when they want to pay for some product or service.
-The user can change the `PaymentIntent`'s amount or proceed with the checkout to initiate the charge operation.
+The user can change the `PaymentIntent`'s amount or proceed with the checkout that initiates the charge operation.
 The actual charge operation is performed by an external service - the Payment Gateway.
 
 As a datastore, we'll use [DynamoDB](https://aws.amazon.com/dynamodb/) - NoSQL key-value database.
@@ -69,11 +69,11 @@ stateDiagram-v2
 Let's see what can happen when two concurrent operations are performed without additional concurrency control measures.
 
 In the example, a user creates a `PaymentIntent` of $100, initiates the charge operation,
-and simultaneously changes the amount to $200, for examples, by quickly adding a new item to a shopping card.
-Since the charge involves an external service, the Payment Gateway, it takes more time to complete than changing the amount.
+and simultaneously changes the amount to $200, for example, by quickly adding a new item to a shopping card.
+Since the charge involves an external service, the Payment Gateway, it takes longer to complete than changing the amount.
 While processing the $100 charge, the amount has been changed to $200.
 When the successful charge response arrives from the Payment Gateway, the `PaymentIntent` is marked as `CHARGED`.
-In the end, the $200 `PaymentIntent` is marked as `CHARGED` in the Payment System,
+In the end, the $200 `PaymentIntent` is marked as `CHARGED` in the Payments System,
 while only $100 was withdrawn from the user's account.
 
 ```mermaid
@@ -98,7 +98,7 @@ sequenceDiagram
 
     PaymentGateway->>PaymentIntent: Charge succeeded
     activate PaymentIntent
-    PaymentIntent->>PaymentIntent: Set PaymentIntent state to 'CHARGED'
+    PaymentIntent->>PaymentIntent: Update PaymentIntent state to 'CHARGED'
     deactivate PaymentIntent
 ```
 
@@ -112,28 +112,28 @@ The [Repository](https://martinfowler.com/eaaCatalog/repository.html) is an abst
 that hides the mechanics of a particular database technology and provides a clean interface for
 querying and persisting business objects.
 
-Encapsulating the concurrency control mechanisms inside the Repository
-has an advantage of hiding the complexity of concurrency control from the business logic code.
+Encapsulating the concurrency control mechanisms inside the Repository has the advantage
+of hiding the complexity of concurrency control from the business logic code.
 This way, from the domain layer point of view, concurrency doesn't exist -
 when the code is running, it assumes it's the only running process at that time.
-This greatly simplifies the domain layer code and makes it less cluttered with infrastructure concerns.
+It simplifies the domain layer code and makes it less cluttered with infrastructure concerns.
 
-Concurrency control mechanisms add an additional overhead to the database layer -
+Concurrency control mechanisms add overhead to the database layer -
 additional reads, writes, and conditional checks. Therefore, the downside of encapsulating concurrency control
 inside the Repository is that the concurrency control will always be used on database writes,
-including scenarios where data write anomalies can't occur due to how the application and business logic is designed.
+including scenarios where data write conflicts can't occur due to how the application and business logic are designed.
 In that case, the additional resources spent on ensuring data correctness are wasted,
-rendering the system less performant and more resource intensive.
+rendering the system less performant and more resource-intensive.
 
 Another approach to concurrency control is to apply it selectively where necessary or omit it altogether.
 In some use cases, it's possible to order a system's operations and design business objects
-in a way that minimize or eliminate concurrency anomalies. Shifting some concurrency control mechanisms
+in a way that minimizes or eliminates concurrency conflicts. Shifting some concurrency control mechanisms
 to the domain layer can help optimize necessary parts of the application. This approach is useful
 in high-performance and low-latency systems, where additional performance overhead of traditional
 pessimistic and optimistic concurrency control mechanisms is intolerable.
 This excellent talk about [eventual consistency](https://www.infoq.com/presentations/eventual-consistent/)
-by Susanne Braun gives many practical examples on designing systems in the context of
-Domain-Driven Design, distributed systems and eventual consistency.
+by Susanne Braun gives many practical examples of designing systems in the context of
+Domain-Driven Design, distributed systems, and eventual consistency.
 
 ### Pessimistic Locking with Two-Phase Lock
 
@@ -142,23 +142,24 @@ Domain-Driven Design, distributed systems and eventual consistency.
 >
 > Application tests: [tests/pessimistic_payments/](tests/pessimistic_payments/)
 >
-> DynamoDB pessimistic lock implementation: [src/database_locks/](src/database_locks/)
+> DynamoDB pessimistic lock code: [src/database_locks/](src/database_locks/)
 >
 > DynamoDB pessimistic lock tests: [tests/database_locks/](tests/database_locks/)
 
-The pessimistic locking assumes that conflicts will happen and tries to prevent them
+The pessimistic locking assumes that conflicts will happen and prevents them
 by acquiring a unique lock on a resource before attempting to modify it.
-The pessimistic lock is usually used in cases where conflicts are bound to happen,
-or where retry operations due to
+The pessimistic lock is usually used in cases where conflicts are bound to happen or where retry operations are expensive.
 
-To ensure that no other concurrent request will modify the data,
-only one actor (user, HTTP request, etc.) can hold the lock at the same time.
+To ensure that no other concurrent request will modify the data, only one actor (user, HTTP request)
+can hold the lock at the same time. Because only one request can modify a resource at a time,
+pessimistic locking results in a throughput penalty, so this type of lock should be used sparingly.
 
-An exception is raised if the lock is already acquired, and the caller must determine an appropriate retry strategy -
-pause the request and retry later, usually with exponential backoff, or fail the request and let the caller retry.
+An exception is raised if the lock is already acquired, and the caller must determine an appropriate
+[retry strategy](https://encore.dev/blog/retries) - pause the request and retry later, usually with exponential backoff,
+or fail the request and let the caller retry.
 
-After acquiring the lock, it's essential to query the latest instances of the objects from the datastore to ensure that
-business decisions will be made on the most recent data.
+After acquiring the lock, it's essential to query the latest instances of the objects from the datastore again
+to ensure that business decisions will be made on the most recent data.
 In eventually consistent databases like DynamoDB it will require the use of
 [strongly consistent reads](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html).
 
@@ -204,7 +205,7 @@ sequenceDiagram
 
     PaymentGateway->>PaymentIntent: Charge succeeded
     activate PaymentIntent
-    PaymentIntent->>PaymentIntent: Set PaymentIntent state to 'CHARGED'
+    PaymentIntent->>PaymentIntent: Update PaymentIntent state to 'CHARGED'
     PaymentIntent->>PaymentIntent: Release lock
     deactivate PaymentIntent
 ```
@@ -214,6 +215,12 @@ sequenceDiagram
 DynamoDB doesn't provide pessimistic locking out of the box; however, the implementation is straightforward.
 The example implementation is in the [src/database_locks/pessimistic_lock.py](src/database_locks/pessimistic_lock.py),
 and the tests are in [tests/database_locks/test_dynamodb_pessimistic_lock.py](tests/database_locks/test_dynamodb_pessimistic_lock.py).
+
+> [!NOTE]
+> Your database might already implement pessimistic locking out of the box,
+> so you don't need to write your own implementation.
+> For example, see the [Two-Phase Lock with Relational Databases](#two-phase-lock-with-relational-databases),
+> and check your databases documentation.
 
 ```python
 from database_locks import DynamoDBPessimisticLock
@@ -226,7 +233,7 @@ repository = DynamoDBPaymentIntentRepository(dynamodb_client, table_name="paymen
 # Content manager acquires a lock on DynamoDB item on enter and releases the lock on exit
 async with lock(key={"PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"}, "SK": {"S": "#PAYMENT_INTENT"}}):
     # Get the fresh instance of the item after aquiring the lock to ensure you're working with latest data
-    # Requires use of DynamoDB's strongly consistent read to prevent getting stale data
+    # Requires use of DynamoDB's strongly consistent read to prevent querying stale data
     payment_intent = await repository.get("pi_123456")
 
     await payment_intent.execute_charge(payment_gateway)
@@ -235,7 +242,10 @@ async with lock(key={"PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"}, "SK": {
 
 The lock can be set to expire with the `lock_timeout` parameter.
 It might be useful to support automatic retries in case of unreleased locks, e.g.,
-in case of temporary DynamoDB error or application crash.
+in case of a temporary DynamoDB error or application crash.
+The timeout can be aligned with HTTP request timeout; for example, if a web application
+is configured to time-out requests executing, for example, longer than 3 minutes,
+a 5-minute timeout on the lock will ensure that it's safe to release the lock.
 
 ```python
 from datetime import timedelta
@@ -245,11 +255,11 @@ from database_locks import DynamoDBPessimisticLock
 lock = DynamoDBPessimisticLock(
     dynamodb_client,
     table_name="payment-intents",
-    lock_timeout=timedelta(minutes=30),
+    lock_timeout=timedelta(minutes=5),
 )
 ```
 
-The `DynamoDBPessimisticLock` implementation can be hidden away in the `PaymentIntentRepository`,
+The `DynamoDBPessimisticLock` implementation can be hidden away in the `PaymentIntentRepository`
 while keeping the usage of locks explicit in the client code.
 
 ```python
@@ -285,9 +295,32 @@ async def test_payment_intent_charged_once(repo: PaymentIntentRepository) -> Non
     payment_gw_mock.charge.assert_awaited_once()
 ```
 
+#### Two-Phase Lock with Relational Databases
+
+Most relational databases already offer the possibility of manually acquiring a shared or exclusive lock.
+For example, in PostgreSQL, you can use `SELECT FOR UPDATE` within a transaction to acquire an exclusive lock on a row level.
+Read more about explicit locking in PostgreSQL at <https://www.postgresql.org/docs/current/explicit-locking.html>.
+
+```sql
+BEGIN;
+
+SELECT id, "state", customer_id, amount, currency
+FROM payment_intents
+WHERE id = 'pi_123456'
+FOR UPDATE; -- acquires an exclusive lock on the row, preventing other transactions from reading and modifying it
+
+UPDATE payment_intents SET "state" = 'CHARGED' WHERE id = 'pi_123456';
+
+COMMIT;
+```
+
 #### Drawbacks of Pessimistic Locking
 
 TODO
+
+- [ ] Throughput and performance penalty
+- [ ] Deadlocks
+- [ ] Overkill in many cases
 
 ### Optimistic Locking with Incrementing Version Number and Semantic Lock
 
@@ -298,28 +331,12 @@ TODO
 
 TODO
 
-## Request Idempotence
+- Incrementing version number
+- Semantic lock & transactional outbox for making charge request
 
-TODO
+## Note on Request Idempotence
 
-## Draft
-
-- [ ] Shifting concurrency control concerns to the infrastructure layer, making
-      the business logic unaware of concurrent execution.
-      From the perspective of the business logic, it always runs in a serial manner
-
-- [ ] Moving **some parts** of the concurrency control to the business logic layer
-      to optimize parts of the system and achieve higher throughput, improve user experience, and scalability.
-
-- [ ] Other approaches
-
-  - [ ] Idempotence in general
-
-    - Explicit idempotence key
-    - Assembling idempotence key on the consumer side from the received data
-    - [ ] Throw error or return the same response? Probably returning the same response.
-
-  - [ ] Ordering operations to achieve idempotence and concurrency control
+TODO ensuring that Payment Gateway's charge API is idempotent to enable safe retries.
 
 ## Resources
 
@@ -341,3 +358,9 @@ TODO
 - Article: [Implement resource counters with Amazon DynamoDB](https://aws.amazon.com/blogs/database/implement-resource-counters-with-amazon-dynamodb/)
 
 - Talk: [Eventual Consistency – Don’t Be Afraid!](https://www.infoq.com/presentations/eventual-consistent/)
+
+- Article: [Retries: An interactive study of common retry methods](https://encore.dev/blog/retries)
+
+- Article: [Designing robust and predictable APIs with idempotency](https://stripe.com/blog/idempotency)
+
+- Article: [Your Lambda function might execute twice. Be prepared!](https://cloudonaut.io/your-lambda-function-might-execute-twice-deal-with-it/)
