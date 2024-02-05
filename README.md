@@ -339,19 +339,56 @@ for example, when concurrency conflicts happen often and the operation is expens
 
 ### Optimistic Locking with Incrementing Version Number and Semantic Lock
 
-> [!NOTE]
-> Application code: [src/optimistic_payments/](src/optimistic_payments/)
->
-> Application tests: [tests/optimistic_payments/](tests/optimistic_payments/)
+Optimistic locking is also known as optimistic concurrency control because this concurrency control strategy doesn't involve any locks at all.
+Optimistic concurrency control mechanism assumes that write conflicts are unlikely to happen.
+It detects if the items being written have changed since the last read and aborts the transaction.
+Unlike pessimistic locking, where the check for other concurrent operations happens at the beginning of a request by acquiring a lock,
+with optimistic locking, the check is shifted to the end - on transaction commit.
 
-TODO
+With optimistic locking, each item is assigned an incrementing version number.
+When an item is queried from a database, an application must keep track of the returned version number, e.g., '1'.
+When the application wants to modify the item within the same business transaction,
+it must add a conditional check to the database write operation, checking that the version number is still the same in the database, e.g., '1',
+and increment the version number by one, e.g., `check current version == 1 AND set new version = 2`.
+If the version number is the same, no other concurrent request has modified the same item, so it's safe to commit the changes.
+If the version number is not the same, another concurrent request has modified the item,
+so it's not safe to write, and the database transaction must be aborted.
 
-- Incrementing version number
-- Semantic lock & transactional outbox for making charge request
-- When using optimistic locking, your business operation must be encapsulated in the unit of work
-- When using optimistic locking, the request must not issue any destructive operations outside of the
-  transaction (unit of work), for example, making the charge request to the external Payment Gateway
-- Provides monotonic updates
+```mermaid
+sequenceDiagram
+
+actor Alice
+participant DynamoDB
+actor Bob
+
+Alice->>DynamoDB: Get PaymentIntent
+Bob->>DynamoDB: Get PaymentIntent
+
+DynamoDB-->>Alice: PaymentIntent(amount = 100, version = 1)
+DynamoDB-->>Bob: PaymentIntent(amount = 100, version = 1)
+
+Alice->>DynamoDB: Update PaymentIntent(amount = 200, version = 1)
+Bob->>DynamoDB: Update PaymentIntent(amount = 399, version = 1)
+
+DynamoDB-->>Alice: Updated, new version = 2
+DynamoDB-->>Bob: Update failed, current version != 1
+
+Bob->>DynamoDB: Get PaymentIntent
+DynamoDB-->>Bob: PaymentIntent(amount = 200, version = 2)
+Bob->>Bob: Should I retry my operation?
+```
+
+Optimistic locking relies on conflict detection and transaction cancellation.
+A separate mechanism is required to catch optimistic lock errors and determine an appropriate retry mechanism,
+e.g., retry automatically with exponential backoff, display an error to the user for taking manual action,
+or discard the failed operation.
+
+- [ ] Incrementing version number
+- [ ] Semantic lock & transactional outbox for making charge request
+- [ ] When using optimistic locking, your business operation must be encapsulated in the unit of work
+- [ ] When using optimistic locking, the request must not issue any destructive operations outside of the
+      transaction (unit of work), for example, making the charge request to the external Payment Gateway
+- [ ] Provides monotonic updates
 
 ```mermaid
 ---
