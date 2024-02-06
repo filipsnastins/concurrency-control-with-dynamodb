@@ -20,11 +20,17 @@ To prevent data corruption anomalies such as lost updates, application-level con
       - [Two-Phase Lock with DynamoDB](#two-phase-lock-with-dynamodb)
       - [Two-Phase Lock with Relational Databases](#two-phase-lock-with-relational-databases)
       - [Drawbacks of Pessimistic Locking](#drawbacks-of-pessimistic-locking)
-    - [Optimistic Locking with Incrementing Version Number and Semantic Lock](#optimistic-locking-with-incrementing-version-number-and-semantic-lock)
+    - [Optimistic Locking with Incrementing Version Number](#optimistic-locking-with-incrementing-version-number)
+      - [Optimistic Locking in Distributed Transactions](#optimistic-locking-in-distributed-transactions)
+      - [Applying Optimistic Locking to Payments System Example](#applying-optimistic-locking-to-payments-system-example)
       - [Optimistic Locking with DynamoDB](#optimistic-locking-with-dynamodb)
       - [Optimistic Locking with Relational Databases](#optimistic-locking-with-relational-databases)
   - [Note on Request Idempotence](#note-on-request-idempotence)
   - [Resources](#resources)
+    - [Concurrency Control](#concurrency-control)
+    - [DynamoDB](#dynamodb)
+    - [Distributed Transactions](#distributed-transactions)
+    - [API Idempotence](#api-idempotence)
 
 ## Example Application - Payments System
 
@@ -337,22 +343,24 @@ described in the next section, better aligns with DynamoDB's data modeling appro
 The pessimistic locking still has its use cases when using DynamoDB or any other database,
 for example, when concurrency conflicts happen often and the operation is expensive to retry.
 
-### Optimistic Locking with Incrementing Version Number and Semantic Lock
+### Optimistic Locking with Incrementing Version Number
 
-Optimistic locking is also known as optimistic concurrency control because this concurrency control strategy doesn't involve any locks at all.
-Optimistic concurrency control mechanism assumes that write conflicts are unlikely to happen.
-It detects if the items being written have changed since the last read and aborts the transaction.
+Optimistic locking is also known as optimistic concurrency control because it doesn't involve any locks at all.
+Optimistic concurrency control assumes that write conflicts are unlikely to happen;
+it detects if the items being written have changed since the last read and aborts the transaction.
 Unlike pessimistic locking, where the check for other concurrent operations happens at the beginning of a request by acquiring a lock,
-with optimistic locking, the check is shifted to the end - on transaction commit.
+with optimistic locking, the check is shifted to the end - transaction commit.
 
 With optimistic locking, each item is assigned an incrementing version number.
-When an item is queried from a database, an application must keep track of the returned version number, e.g., '1'.
+When an item is queried from a database, an application must keep track of the returned version number, e.g., `1`.
 When the application wants to modify the item within the same business transaction,
-it must add a conditional check to the database write operation, checking that the version number is still the same in the database, e.g., '1',
+it must add a conditional check to the database write operation, checking that the version number is still the same in the database, e.g., `1`,
 and increment the version number by one, e.g., `check current version == 1 AND set new version = 2`.
 If the version number is the same, no other concurrent request has modified the same item, so it's safe to commit the changes.
 If the version number is not the same, another concurrent request has modified the item,
-so it's not safe to write, and the database transaction must be aborted.
+so it's unsafe to write, and the database transaction must be aborted.
+A separate mechanism is required to catch optimistic lock errors and determine an appropriate retry mechanism, e.g.,
+retry automatically with exponential backoff, display an error to the user for taking manual action or discard the failed operation.
 
 ```mermaid
 sequenceDiagram
@@ -378,17 +386,33 @@ DynamoDB-->>Bob: PaymentIntent(amount = 200, version = 2)
 Bob->>Bob: Should I retry my operation?
 ```
 
-Optimistic locking relies on conflict detection and transaction cancellation.
-A separate mechanism is required to catch optimistic lock errors and determine an appropriate retry mechanism,
-e.g., retry automatically with exponential backoff, display an error to the user for taking manual action,
-or discard the failed operation.
+#### Optimistic Locking in Distributed Transactions
 
-- [ ] Incrementing version number
-- [ ] Semantic lock & transactional outbox for making charge request
-- [ ] When using optimistic locking, your business operation must be encapsulated in the unit of work
-- [ ] When using optimistic locking, the request must not issue any destructive operations outside of the
-      transaction (unit of work), for example, making the charge request to the external Payment Gateway
-- [ ] Provides monotonic updates
+Optimistic locking relies on conflict detection and transaction cancellation.
+A business transaction must be atomic so that it's possible to rollback when a conflict is detected.
+An atomic transaction either succeeds or fails without leaving partial updates.
+Transaction atomicity is straightforward when a business transaction only writes to a single local database
+without modifying data in external services. Relational databases have ACID transactions,
+DynamoDB supports transactions as well, or the business transaction uses only one write operation.
+
+Atomicity is challenging if a business transaction modifies data in other external services.
+For example, as part of the `charge PaymentIntent` business transaction, our Payments System sends a charge request to the Payment Gateway.
+The charge request is sent before committing a transaction, so if a concurrency conflict is detected and the transaction is canceled,
+the `PaymentIntent` is rollbacked to the initial `CREATED` state. However, the Payment Gateway has already charged the user,
+leaving the Payments System inconsistent. This business transaction is not atomic because it can't be fully rollbacked.
+This transaction type involving updates in multiple systems is called a distributed transaction.
+
+To make a distributed transaction atomic and concurrency-safe, we can split it into multiple
+individually atomic transactions with the [Saga](https://microservices.io/patterns/data/saga.html) pattern.
+
+TODO
+
+- <https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/saga/saga>
+- <https://microservices.io/patterns/data/saga.html>
+
+#### Applying Optimistic Locking to Payments System Example
+
+TODO
 
 ```mermaid
 ---
@@ -462,6 +486,15 @@ sequenceDiagram
     deactivate PaymentIntent
 ```
 
+TODO
+
+- [ ] Incrementing version number
+- [ ] Semantic lock & transactional outbox for making charge request
+- [ ] When using optimistic locking, your business operation must be encapsulated in the unit of work
+- [ ] When using optimistic locking, the request must not issue any destructive operations outside of the
+      transaction (unit of work), for example, making the charge request to the external Payment Gateway
+- [ ] Provides monotonic updates
+
 #### Optimistic Locking with DynamoDB
 
 TODO
@@ -476,6 +509,8 @@ TODO ensuring that Payment Gateway's charge API is idempotent to enable safe ret
 
 ## Resources
 
+### Concurrency Control
+
 - Article: [Optimistic vs. Pessimistic Locking](https://vladmihalcea.com/optimistic-vs-pessimistic-locking/)
 
 - Article: [A beginner’s guide to Serializability](https://vladmihalcea.com/serializability/)
@@ -487,15 +522,31 @@ TODO ensuring that Payment Gateway's charge API is idempotent to enable safe ret
 - Book: "Transactions" chapter from [High-Performance Java Persistence Book](https://vladmihalcea.com/books/high-performance-java-persistence/);
   the chapter is available for free download by subscribing to the email newsletter at the end of [this](https://vladmihalcea.com/preventing-lost-updates-in-long-conversations/) article.
 
+- Talk: [Eventual Consistency – Don’t Be Afraid!](https://www.infoq.com/presentations/eventual-consistent/)
+
+### DynamoDB
+
 - Article: [Implementing Pessimistic Locking with DynamoDB and Python](https://www.tecracer.com/blog/2022/10/implementing-pessimistic-locking-with-dynamodb-and-python.html)
 
 - Article: [Implementing optimistic locking in DynamoDB with Python](https://www.tecracer.com/blog/2021/07/implementing-optimistic-locking-in-dynamodb-with-python.html)
 
+- Article: [DynamoDB: Optimistic locking with version number](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBMapper.OptimisticLocking.html)
+
 - Article: [Implement resource counters with Amazon DynamoDB](https://aws.amazon.com/blogs/database/implement-resource-counters-with-amazon-dynamodb/)
 
-- Talk: [Eventual Consistency – Don’t Be Afraid!](https://www.infoq.com/presentations/eventual-consistent/)
-
 - Article: [Retries: An interactive study of common retry methods](https://encore.dev/blog/retries)
+
+### Distributed Transactions
+
+- Article: [Pattern: Saga](https://microservices.io/patterns/data/saga.html)
+
+- Article: [Saga distributed transactions pattern](https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/saga/saga)
+
+- Article: [Pattern: Transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html)
+
+- Example: [Transactional Messaging Patterns - with AWS DynamoDB Streams, SNS, SQS, and Lambda](https://github.com/filipsnastins/transactional-messaging-patterns-with-aws-dynamodb-streams-sns-sqs-lambda)
+
+### API Idempotence
 
 - Article: [Designing robust and predictable APIs with idempotency](https://stripe.com/blog/idempotency)
 
