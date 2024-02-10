@@ -17,14 +17,15 @@ To prevent data corruption anomalies such as lost updates, application-level con
   - [Concurrent Operation Example - Charge and Change Amount](#concurrent-operation-example---charge-and-change-amount)
   - [Concurrency Control Mechanisms](#concurrency-control-mechanisms)
     - [Pessimistic Locking with Two-Phase Lock](#pessimistic-locking-with-two-phase-lock)
-      - [Two-Phase Lock with DynamoDB](#two-phase-lock-with-dynamodb)
-      - [Two-Phase Lock with Relational Databases](#two-phase-lock-with-relational-databases)
-      - [Drawbacks of Pessimistic Locking](#drawbacks-of-pessimistic-locking)
-    - [Optimistic Locking with Incrementing Version Number](#optimistic-locking-with-incrementing-version-number)
-      - [Optimistic Locking in Distributed Transactions](#optimistic-locking-in-distributed-transactions)
-      - [Applying Optimistic Locking to the Payments System Example](#applying-optimistic-locking-to-the-payments-system-example)
-      - [Optimistic Locking with DynamoDB](#optimistic-locking-with-dynamodb)
-      - [Optimistic Locking with Relational Databases](#optimistic-locking-with-relational-databases)
+    - [Two-Phase Lock with DynamoDB](#two-phase-lock-with-dynamodb)
+    - [Two-Phase Lock with Relational Databases](#two-phase-lock-with-relational-databases)
+    - [Benefits and Drawbacks of Pessimistic Locking](#benefits-and-drawbacks-of-pessimistic-locking)
+  - [Optimistic Locking with Incrementing Version Number](#optimistic-locking-with-incrementing-version-number)
+    - [Optimistic Locking in Distributed Transactions](#optimistic-locking-in-distributed-transactions)
+    - [Applying Optimistic Locking to the Payments System Example](#applying-optimistic-locking-to-the-payments-system-example)
+    - [Optimistic Locking with DynamoDB](#optimistic-locking-with-dynamodb)
+    - [Optimistic Locking with Relational Databases](#optimistic-locking-with-relational-databases)
+    - [Benefits and Drawbacks of Optimistic Locking](#benefits-and-drawbacks-of-optimistic-locking)
   - [Note on API Idempotence](#note-on-api-idempotence)
   - [Resources](#resources)
     - [Concurrency Control](#concurrency-control)
@@ -220,7 +221,7 @@ sequenceDiagram
     deactivate PaymentIntent
 ```
 
-#### Two-Phase Lock with DynamoDB
+### Two-Phase Lock with DynamoDB
 
 DynamoDB doesn't provide pessimistic locking out of the box, so it needs to be implemented manually.
 The example implementation is in the [src/database_locks/pessimistic_lock.py](src/database_locks/pessimistic_lock.py),
@@ -310,7 +311,7 @@ async def test_payment_intent_charged_once(repo: PaymentIntentRepository) -> Non
     payment_gw_mock.charge.assert_awaited_once()
 ```
 
-#### Two-Phase Lock with Relational Databases
+### Two-Phase Lock with Relational Databases
 
 Most relational databases already offer the possibility of manually acquiring a shared or exclusive lock.
 For example, in PostgreSQL, you can use `SELECT FOR UPDATE` within a transaction to acquire an exclusive lock on a row level.
@@ -329,7 +330,7 @@ UPDATE payment_intents SET state = 'CHARGED' WHERE id = 'pi_123456';
 COMMIT;
 ```
 
-#### Drawbacks of Pessimistic Locking
+### Benefits and Drawbacks of Pessimistic Locking
 
 Since pessimistic locks provide access to a resource modification to a single request at a time,
 it results in a performance and throughput penalty. Lock acquisition is a multiple-step process:
@@ -345,7 +346,7 @@ described in the next section, better aligns with DynamoDB's data modeling appro
 The pessimistic locking still has its use cases when using DynamoDB or any other database,
 for example, when concurrency conflicts happen often and the operation is expensive to retry.
 
-### Optimistic Locking with Incrementing Version Number
+## Optimistic Locking with Incrementing Version Number
 
 Optimistic locking is also known as optimistic concurrency control because it doesn't involve any locks at all.
 
@@ -391,7 +392,7 @@ DynamoDB-->>Bob: PaymentIntent(amount = 200, version = 2)
 Bob->>Bob: Should I retry my operation?
 ```
 
-#### Optimistic Locking in Distributed Transactions
+### Optimistic Locking in Distributed Transactions
 
 Optimistic locking relies on conflict detection and transaction cancellation.
 A business transaction must be atomic so that it's possible to rollback when a conflict is detected.
@@ -434,7 +435,7 @@ and a separate process reads saved messages from the database and sends them to 
 You can find a complete example of how to apply these patterns in another of my projects:
 <https://github.com/filipsnastins/transactional-messaging-patterns-with-aws-dynamodb-streams-sns-sqs-lambda>
 
-#### Applying Optimistic Locking to the Payments System Example
+### Applying Optimistic Locking to the Payments System Example
 
 > [!NOTE]
 > Application code: [src/optimistic_payments/](src/optimistic_payments/)
@@ -540,7 +541,7 @@ sequenceDiagram
     deactivate PaymentIntent
 ```
 
-#### Optimistic Locking with DynamoDB
+### Optimistic Locking with DynamoDB
 
 Optimistic locking implementation in DynamoDB is based on condition expressions -
 verifying that the current version number the application's request holds is still the same in the database.
@@ -585,7 +586,7 @@ For example, in the [optimistic_payments](src/optimistic_payments/) application 
 the optimistic locking is implemented as a separate `Put` operation in a DynamoDB transaction.
 Read more about implementing optimistic locking in the [Resources - DynamoDB](#dynamodb) section.
 
-#### Optimistic Locking with Relational Databases
+### Optimistic Locking with Relational Databases
 
 Optimistic locking implementation in relational databases is similar to DynamoDB -
 with a version column and a conditional check in the `UPDATE` SQL statement.
@@ -620,6 +621,13 @@ WHERE
     AND version = 0;  -- check current version hasn't changed
 COMMIT;
 ```
+
+### Benefits and Drawbacks of Optimistic Locking
+
+TODO
+
+- Scalable
+- Distributed transactions
 
 ## Note on API Idempotence
 
