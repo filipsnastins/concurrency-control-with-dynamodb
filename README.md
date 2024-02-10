@@ -22,14 +22,15 @@ To prevent data corruption anomalies such as lost updates, application-level con
       - [Drawbacks of Pessimistic Locking](#drawbacks-of-pessimistic-locking)
     - [Optimistic Locking with Incrementing Version Number](#optimistic-locking-with-incrementing-version-number)
       - [Optimistic Locking in Distributed Transactions](#optimistic-locking-in-distributed-transactions)
-      - [Applying Optimistic Locking to Payments System Example](#applying-optimistic-locking-to-payments-system-example)
+      - [Applying Optimistic Locking to the Payments System Example](#applying-optimistic-locking-to-the-payments-system-example)
       - [Optimistic Locking with DynamoDB](#optimistic-locking-with-dynamodb)
       - [Optimistic Locking with Relational Databases](#optimistic-locking-with-relational-databases)
-  - [Note on Request Idempotence](#note-on-request-idempotence)
+  - [Note on API Idempotence](#note-on-api-idempotence)
   - [Resources](#resources)
     - [Concurrency Control](#concurrency-control)
     - [DynamoDB](#dynamodb)
     - [Distributed Transactions](#distributed-transactions)
+    - [Retries](#retries)
     - [API Idempotence](#api-idempotence)
 
 ## Example Application - Payments System
@@ -141,7 +142,7 @@ in high-performance and low-latency systems, where additional performance overhe
 pessimistic and optimistic concurrency control mechanisms is intolerable.
 This excellent talk about [eventual consistency](https://www.infoq.com/presentations/eventual-consistent/)
 by Susanne Braun gives many practical examples of designing systems in the context of
-Domain-Driven Design, distributed systems, and eventual consistency.
+distributed systems and eventual consistency.
 
 ### Pessimistic Locking with Two-Phase Lock
 
@@ -156,11 +157,12 @@ Domain-Driven Design, distributed systems, and eventual consistency.
 
 The pessimistic locking assumes that conflicts will happen and prevents them
 by acquiring a unique lock on a resource before attempting to modify it.
-The pessimistic lock is usually used in cases where conflicts are bound to happen or where retry operations are expensive.
+The pessimistic lock is usually used in cases where conflicts are bound to happen due to high contention
+or where retry operations are expensive.
 
 To ensure that no other concurrent request will modify the data, only one actor (user, HTTP request)
 can hold the lock at the same time. Because only one request can modify a resource at a time,
-pessimistic locking results in a throughput penalty, so this type of lock should be used sparingly.
+pessimistic locking results in a throughput penalty.
 
 An exception is raised if the lock is already acquired, and the caller must determine an appropriate
 [retry strategy](https://encore.dev/blog/retries) - pause the request and retry later, usually with exponential backoff,
@@ -183,9 +185,9 @@ The two basic types of two-phase locks are:
 - Exclusive (write) lock - prevents both reads and writes.
 
 Using pessimistic locking, we can resolve the problem with concurrent "charge and change amount" requests.
-In this example, the "Charge `PaymentIntent`" request acquires a lock on the `PaymentIntent` before attempting
+In this example, the "charge `PaymentIntent`" request acquires a lock on the `PaymentIntent` before attempting
 to initiate the charge request, ensuring that no other request is currently modifying the `PaymentIntent` at the same time.
-The "Change `PaymentIntent` amount" request failed because it could not acquire the lock.
+The "change `PaymentIntent` amount" request failed because it could not acquire the lock.
 
 ```mermaid
 sequenceDiagram
@@ -220,7 +222,7 @@ sequenceDiagram
 
 #### Two-Phase Lock with DynamoDB
 
-DynamoDB doesn't provide pessimistic locking out of the box; however, the implementation is straightforward.
+DynamoDB doesn't provide pessimistic locking out of the box, so it needs to be implemented manually.
 The example implementation is in the [src/database_locks/pessimistic_lock.py](src/database_locks/pessimistic_lock.py),
 and the tests are in [tests/database_locks/test_dynamodb_pessimistic_lock.py](tests/database_locks/test_dynamodb_pessimistic_lock.py).
 
@@ -331,12 +333,12 @@ COMMIT;
 
 Since pessimistic locks provide access to a resource modification to a single request at a time,
 it results in a performance and throughput penalty. Lock acquisition is a multiple-step process:
-acquire a lock, query the objects, and release the lock. While the lock is held, other
-requests will fail or will be continuously retried until they succeed. It increases contention and latency.
+acquire a lock, query the objects, and release the lock. While the lock is held,
+other requests must wait until the lock is released. It increases contention and latency.
 Even if no conflicts would've occurred between the concurrent requests, they still must wait for their turn to acquire the lock.
 
 When using pessimistic locks with DynamoDB, the application can't take advantage of the database's
-eventual consistency data model. Using pessimistic locking as the primary concurrency control mechanism in DynamoDB
+eventual consistency model. Using pessimistic locking as the primary concurrency control mechanism in DynamoDB
 strips away the benefits of using a distributed database. The optimistic concurrency control mechanism,
 described in the next section, better aligns with DynamoDB's data modeling approach.
 
@@ -346,21 +348,24 @@ for example, when concurrency conflicts happen often and the operation is expens
 ### Optimistic Locking with Incrementing Version Number
 
 Optimistic locking is also known as optimistic concurrency control because it doesn't involve any locks at all.
+
 Optimistic concurrency control assumes that write conflicts are unlikely to happen;
-it detects if the items being written have changed since the last read and aborts the transaction.
-Unlike pessimistic locking, where the check for other concurrent operations happens at the beginning of a request by acquiring a lock,
+it detects if written items have changed since the last read and aborts the transaction.
+Unlike pessimistic locking, where the check for other concurrent operations occurs at the beginning of a request by acquiring a lock,
 with optimistic locking, the check is shifted to the end - transaction commit.
 
 With optimistic locking, each item is assigned an incrementing version number.
 When an item is queried from a database, an application must keep track of the returned version number, e.g., `1`.
 When the application wants to modify the item within the same business transaction,
-it must add a conditional check to the database write operation, checking that the version number is still the same in the database, e.g., `1`,
-and increment the version number by one, e.g., `check current version == 1 AND set new version = 2`.
-If the version number is the same, no other concurrent request has modified the same item, so it's safe to commit the changes.
-If the version number is not the same, another concurrent request has modified the item,
+it must add a conditional check to the database's write operation,
+checking that the version number is still the same in the database - `1`,
+and increment the version number by one - `check current version == 1 AND set new version = 2`.
+
+If the version number is the same, no other concurrent request has modified the item, so it's safe to commit the changes.
+If the version number differs, another concurrent request has modified the item,
 so it's unsafe to write, and the database transaction must be aborted.
-A separate mechanism is required to catch optimistic lock errors and determine an appropriate retry mechanism, e.g.,
-retry automatically with exponential backoff, display an error to the user for taking manual action or discard the failed operation.
+A separate mechanism is required to catch optimistic lock errors and determine an appropriate retry mechanism:
+retry automatically with exponential backoff, display an error to the user for taking manual action, or discard the failed operation.
 
 ```mermaid
 sequenceDiagram
@@ -393,26 +398,43 @@ A business transaction must be atomic so that it's possible to rollback when a c
 An atomic transaction either succeeds or fails without leaving partial updates.
 Transaction atomicity is straightforward when a business transaction only writes to a single local database
 without modifying data in external services. Relational databases have ACID transactions,
-DynamoDB supports transactions as well, or the business transaction uses only one write operation.
+DynamoDB supports transactions as well, or only a single DynamoDB `PutItem` operation is used.
 
 Atomicity is challenging if a business transaction modifies data in other external services.
-For example, as part of the `charge PaymentIntent` business transaction, our Payments System sends a charge request to the Payment Gateway.
-The charge request is sent before committing a transaction, so if a concurrency conflict is detected and the transaction is canceled,
-the `PaymentIntent` is rollbacked to the initial `CREATED` state. However, the Payment Gateway has already charged the user,
-leaving the Payments System inconsistent. This business transaction is not atomic because it can't be fully rollbacked.
-This transaction type involving updates in multiple systems is called a distributed transaction.
+For example, as part of the "charge `PaymentIntent`" business transaction,
+the Payments System sends a charge request to the Payment Gateway.
+The charge request is sent before updating the `PaymentIntent` state in the database,
+so if a concurrency conflict is detected and the transaction is canceled,
+the `PaymentIntent` is rollbacked to the initial `CREATED` state.
+However, the Payment Gateway has already charged the user,
+leaving the Payments System and Payment Gateway in an inconsistent state.
+This business transaction is not atomic because it can't be easily rollbacked.
+Such transactions involving updates in multiple systems are called distributed transactions.
 
-To make a distributed transaction atomic and concurrency-safe, we can split it into multiple
+To make a distributed transaction atomic, we can split it into multiple
 individually atomic transactions with the [Saga](https://microservices.io/patterns/data/saga.html) pattern.
-
-TODO
+Read more about the Saga pattern:
 
 - <https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/saga/saga>
 - <https://microservices.io/patterns/data/saga.html>
 
-#### Applying Optimistic Locking to Payments System Example
+To make individual transactions that compose a Saga atomic, we can use Saga's Semantic Locks with two other patterns:
+[Unit of Work](https://martinfowler.com/eaaCatalog/unitOfWork.html) and
+[Transactional Outbox](https://microservices.io/patterns/data/transactional-outbox.html).
 
-TODO
+The Semantic Lock, an application-level lock, indicates that a business object's update is in progress.
+
+The Unit of Work ensures that all data changes are atomically written to a database without concurrency anomalies.
+Here, we can apply optimistic locking to resolve concurrency problems and transactions to achieve atomicity.
+
+The Transactional Outbox ensures messages/events are reliably published to a message broker.
+Using the Transactional Outbox, the message is first stored in the database as part of the Unit of Work's transaction,
+and a separate process reads saved messages from the database and sends them to the message broker.
+
+#### Applying Optimistic Locking to the Payments System Example
+
+... TODO we're distributing the 'charge PaymentIntent' into two steps -
+request the charge (set the semantic lock) and perform the actual charge request.
 
 ```mermaid
 ---
@@ -503,7 +525,7 @@ TODO
 
 TODO
 
-## Note on Request Idempotence
+## Note on API Idempotence
 
 TODO ensuring that Payment Gateway's charge API is idempotent to enable safe retries.
 
@@ -534,8 +556,6 @@ TODO ensuring that Payment Gateway's charge API is idempotent to enable safe ret
 
 - Article: [Implement resource counters with Amazon DynamoDB](https://aws.amazon.com/blogs/database/implement-resource-counters-with-amazon-dynamodb/)
 
-- Article: [Retries: An interactive study of common retry methods](https://encore.dev/blog/retries)
-
 ### Distributed Transactions
 
 - Article: [Pattern: Saga](https://microservices.io/patterns/data/saga.html)
@@ -545,6 +565,10 @@ TODO ensuring that Payment Gateway's charge API is idempotent to enable safe ret
 - Article: [Pattern: Transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html)
 
 - Example: [Transactional Messaging Patterns - with AWS DynamoDB Streams, SNS, SQS, and Lambda](https://github.com/filipsnastins/transactional-messaging-patterns-with-aws-dynamodb-streams-sns-sqs-lambda)
+
+### Retries
+
+- Article: [Retries: An interactive study of common retry methods](https://encore.dev/blog/retries)
 
 ### API Idempotence
 
