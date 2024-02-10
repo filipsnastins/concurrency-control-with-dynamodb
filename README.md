@@ -580,7 +580,7 @@ class DynamoDBPaymentIntentRepository:
             raise
 ```
 
-There are many ways to implement optimistic locking in DynamoDB, and the exact approach depends on
+There are multiple ways of implementing optimistic locking in DynamoDB, and the exact approach depends on
 your database update operation - whether it's a simple `UpdateItem` or multiple writes wrapped in a DynamoDB transaction.
 For example, in the [optimistic_payments](src/optimistic_payments/) application example,
 the optimistic locking is implemented as a separate `Put` operation in a DynamoDB transaction.
@@ -618,7 +618,7 @@ SET
     version = 1  -- increment version by one
 WHERE
     id = 'pi_123456'
-    AND version = 0;  -- check current version hasn't changed
+    AND version = 0  -- check current version hasn't changed
 COMMIT;
 ```
 
