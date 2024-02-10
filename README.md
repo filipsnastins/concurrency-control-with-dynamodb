@@ -478,6 +478,7 @@ Therefore, the second transaction that changes the amount fails because its vers
 doesn't match with the current version stored in the database (`1`).
 The user can retry changing the amount, but the application will reject the request because
 the `PaymentIntent` is now in the `CHARGE_REQUESTED` state that prevents changing the amount.
+As a result, concurrency anomalies are prevented, and `PaymentIntent` invariants are held.
 
 ```mermaid
 sequenceDiagram
@@ -541,6 +542,30 @@ TODO
 #### Optimistic Locking with Relational Databases
 
 TODO
+
+```sql
+BEGIN;
+
+SELECT
+    id,
+    state,
+    customer_id,
+    amount,
+    currency,
+    version  -- e.g., current version is 0
+FROM payment_intents
+WHERE id = 'pi_123456';
+
+UPDATE payment_intents
+SET
+    state = 'CHARGE_REQUESTED',
+    version = 1  -- increment version by one
+WHERE
+    id = 'pi_123456'
+    AND version = 0;  -- check current version hasn't changed
+
+COMMIT;
+```
 
 ## Note on API Idempotence
 
