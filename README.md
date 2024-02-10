@@ -415,8 +415,8 @@ To make a distributed transaction atomic, we can split it into multiple
 individually atomic transactions with the [Saga](https://microservices.io/patterns/data/saga.html) pattern.
 Read more about the Saga pattern:
 
-- <https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/saga/saga>
 - <https://microservices.io/patterns/data/saga.html>
+- <https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/saga/saga>
 
 To make individual transactions that compose a Saga atomic, we can use Saga's Semantic Locks with two other patterns:
 [Unit of Work](https://martinfowler.com/eaaCatalog/unitOfWork.html) and
@@ -431,14 +431,23 @@ The Transactional Outbox ensures messages/events are reliably published to a mes
 Using the Transactional Outbox, the message is first stored in the database as part of the Unit of Work's transaction,
 and a separate process reads saved messages from the database and sends them to the message broker.
 
+You can find a complete example of how to apply these patterns in another of my projects:
+<https://github.com/filipsnastins/transactional-messaging-patterns-with-aws-dynamodb-streams-sns-sqs-lambda>
+
 #### Applying Optimistic Locking to the Payments System Example
 
-... TODO we're distributing the 'charge PaymentIntent' into two steps -
-request the charge (set the semantic lock) and perform the actual charge request.
+To apply optimistic concurrency control to the Payments System,
+we'll create the "charge `PaymentIntent`" Saga consisting of two separate atomic operations:
+
+1. Request the charge by applying the semantic lock that sets the `PaymentIntent` to the `CHARGE_REQUESTED` state
+   and publish the `PaymentIntentChargeRequested` event as part of the Unit of Work transaction.
+
+2. Listen to the `PaymentIntentChargeRequested` event, send the charge request to the Payment Gateway,
+   and set the `PaymentIntent` state to either `CHARGED` or `CHARGE_FAILED`.
 
 ```mermaid
 ---
-title: PaymentIntent states updated with semantic lock
+title: Updated PaymentIntent states with semantic lock
 ---
 stateDiagram-v2
     CHARGE_REQUESTED: CHARGE_REQUESTED (semantic lock)
@@ -452,6 +461,23 @@ stateDiagram-v2
     CHARGED --> [*]
     CHARGE_FAILED --> [*]
 ```
+
+The sequence diagram below simulates how optimistic concurrency control and semantic lock prevent concurrency anomalies
+and enforce `PaymentIntent` object's invariants.
+
+First, the user creates a new `PaymentIntent` and then sends the charge request. The charge request queries
+the created `PaymentIntent`, checks that it's in the `CREATED` state, applies the semantic lock by
+changing the state to `CHARGE_REQUESTED`, and writes the `PaymentIntentChargeRequested` event to the database.
+The database writes are wrapped in an atomic DynamoDB transaction.
+
+While the DynamoDB transaction was committing, the user sent a new request to change the `PaymentIntent` amount.
+Since the previous transaction hasn't been committed yet, the `PaymentIntent` is still in the `CHARGED` state,
+which allows changing the amount. While the application issued another DynamoDB transaction to change the `PaymentIntent` amount,
+the first transaction that requested the charge was committed, incrementing optimistic lock's version number by one.
+Therefore, the second transaction that changes the amount fails because its version number (`0`)
+doesn't match with the current version stored in the database (`1`).
+The user can retry changing the amount, but the application will reject the request because
+the `PaymentIntent` is now in the `CHARGE_REQUESTED` state that prevents changing the amount.
 
 ```mermaid
 sequenceDiagram
@@ -507,15 +533,6 @@ sequenceDiagram
     PaymentIntent->>User: Cannot change PaymentIntent amount in state 'CHARGE_REQUESTED'
     deactivate PaymentIntent
 ```
-
-TODO
-
-- [ ] Incrementing version number
-- [ ] Semantic lock & transactional outbox for making charge request
-- [ ] When using optimistic locking, your business operation must be encapsulated in the unit of work
-- [ ] When using optimistic locking, the request must not issue any destructive operations outside of the
-      transaction (unit of work), for example, making the charge request to the external Payment Gateway
-- [ ] Provides monotonic updates
 
 #### Optimistic Locking with DynamoDB
 
