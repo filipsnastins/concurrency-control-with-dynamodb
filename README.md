@@ -436,6 +436,11 @@ You can find a complete example of how to apply these patterns in another of my 
 
 #### Applying Optimistic Locking to the Payments System Example
 
+> [!NOTE]
+> Application code: [src/optimistic_payments/](src/optimistic_payments/)
+>
+> Application tests: [tests/optimistic_payments/](tests/optimistic_payments/)
+
 To apply optimistic concurrency control to the Payments System,
 we'll create the "charge `PaymentIntent`" Saga consisting of two separate atomic operations:
 
@@ -473,11 +478,11 @@ The database writes are wrapped in an atomic DynamoDB transaction.
 While the DynamoDB transaction was committing, the user sent a new request to change the `PaymentIntent` amount.
 Since the previous transaction hasn't been committed yet, the `PaymentIntent` is still in the `CHARGED` state,
 which allows changing the amount. While the application issued another DynamoDB transaction to change the `PaymentIntent` amount,
-the first transaction that requested the charge was committed, incrementing optimistic lock's version number by one.
+the first transaction that requested the charge was committed, incrementing the optimistic lock's version number by one.
 Therefore, the second transaction that changes the amount fails because its version number (`0`)
 doesn't match with the current version stored in the database (`1`).
 The user can retry changing the amount, but the application will reject the request because
-the `PaymentIntent` is now in the `CHARGE_REQUESTED` state that prevents changing the amount.
+the `PaymentIntent` is now in the `CHARGE_REQUESTED` state, which prevents changing the amount.
 As a result, concurrency anomalies are prevented, and `PaymentIntent` invariants are held.
 
 ```mermaid
@@ -537,15 +542,60 @@ sequenceDiagram
 
 #### Optimistic Locking with DynamoDB
 
-TODO
+Optimistic locking implementation in DynamoDB is based on condition expressions -
+verifying that the current version number the application's request holds is still the same in the database.
+In the example below, the `update` method verifies that the current version is unchanged
+and atomically increments the version number on the item by one.
+
+```python
+class DynamoDBPaymentIntentRepository:
+    ...
+
+    async def update(self, payment_intent: PaymentIntent) -> None:
+        try:
+            await self._client.update_item(
+                TableName=self._table_name,
+                Key={
+                    "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
+                    "SK": {"S": "#PAYMENT_INTENT"},
+                },
+                UpdateExpression="SET #State = :State, #Amount = :Amount, #Version = :NewVersion",
+                ExpressionAttributeNames={
+                    "#State": "State",
+                    "#Amount": "Amount",
+                    "#Version": "Version",
+                },
+                ExpressionAttributeValues={
+                    ":State": {"S": payment_intent.state},
+                    ":Amount": {"N": str(payment_intent.amount)},
+                    ":NewVersion": {"N": str(payment_intent.version + 1)},
+                    ":CurrentVersion": {"N": str(payment_intent.version)},
+                },
+                ConditionExpression="attribute_exists(Id) AND #Version = :CurrentVersion",
+            )
+        except self._client.exceptions.TransactionCanceledException as e:
+            if e.response["CancellationReasons"][0]["Code"] == "ConditionalCheckFailed":
+                raise OptimisticLockError(payment_intent.id) from e
+            raise
+```
+
+There are many ways to implement optimistic locking in DynamoDB, and the exact approach depends on
+your database update operation - whether it's a simple `UpdateItem` or multiple writes wrapped in a DynamoDB transaction.
+For example, in the [optimistic_payments](src/optimistic_payments/) application example,
+the optimistic locking is implemented as a separate `Put` operation in a DynamoDB transaction.
+Read more about implementing optimistic locking in the [Resources - DynamoDB](#dynamodb) section.
 
 #### Optimistic Locking with Relational Databases
 
-TODO
+Optimistic locking implementation in relational databases is similar to DynamoDB -
+with a version column and a conditional check in the `UPDATE` SQL statement.
+Most Object-Relational Mappers like SQLAlchemy offer version counter implementations -
+<https://docs.sqlalchemy.org/en/20/orm/versioning.html>.
+
+The optimistic locking implementation with SQL looks like this:
 
 ```sql
 BEGIN;
-
 SELECT
     id,
     state,
@@ -555,7 +605,12 @@ SELECT
     version  -- e.g., current version is 0
 FROM payment_intents
 WHERE id = 'pi_123456';
+COMMIT;
 
+-- Optimistic concurrency control allows executing reads and writes
+-- in separate database transactions if necessary.
+
+BEGIN;
 UPDATE payment_intents
 SET
     state = 'CHARGE_REQUESTED',
@@ -563,7 +618,6 @@ SET
 WHERE
     id = 'pi_123456'
     AND version = 0;  -- check current version hasn't changed
-
 COMMIT;
 ```
 
