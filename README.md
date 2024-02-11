@@ -19,13 +19,13 @@ To prevent data corruption anomalies such as lost updates, application-level con
     - [Pessimistic Locking with Two-Phase Lock](#pessimistic-locking-with-two-phase-lock)
     - [Two-Phase Lock with DynamoDB](#two-phase-lock-with-dynamodb)
     - [Two-Phase Lock with Relational Databases](#two-phase-lock-with-relational-databases)
-    - [Benefits and Drawbacks of Pessimistic Locking](#benefits-and-drawbacks-of-pessimistic-locking)
+    - [Advantages and Disadvantages of Pessimistic Locking](#advantages-and-disadvantages-of-pessimistic-locking)
   - [Optimistic Locking with Incrementing Version Number](#optimistic-locking-with-incrementing-version-number)
     - [Optimistic Locking in Distributed Transactions](#optimistic-locking-in-distributed-transactions)
     - [Applying Optimistic Locking to the Payments System Example](#applying-optimistic-locking-to-the-payments-system-example)
     - [Optimistic Locking with DynamoDB](#optimistic-locking-with-dynamodb)
     - [Optimistic Locking with Relational Databases](#optimistic-locking-with-relational-databases)
-    - [Benefits and Drawbacks of Optimistic Locking](#benefits-and-drawbacks-of-optimistic-locking)
+    - [Advantages and Disadvantages of Optimistic Locking](#advantages-and-disadvantages-of-optimistic-locking)
   - [Note on API Idempotence](#note-on-api-idempotence)
   - [Resources](#resources)
     - [Concurrency Control](#concurrency-control)
@@ -332,7 +332,7 @@ UPDATE payment_intents SET state = 'CHARGED' WHERE id = 'pi_123456';
 COMMIT;
 ```
 
-### Benefits and Drawbacks of Pessimistic Locking
+### Advantages and Disadvantages of Pessimistic Locking
 
 Since pessimistic locks provide access to a resource modification to a single request at a time,
 it results in a performance and throughput penalty. Lock acquisition is a multiple-step process:
@@ -630,12 +630,21 @@ WHERE
 COMMIT;
 ```
 
-### Benefits and Drawbacks of Optimistic Locking
+### Advantages and Disadvantages of Optimistic Locking
 
-TODO
+Optimistic locking fits nicely with the DynamoDB's eventual consistency data model.
+DynamoDB's conditional updates with version numbers ensure that stale data writes are rejected,
+even if an application reads stale data due to eventually consistent reads.
+Optimistic concurrency control creates less performance overhead than pessimistic locking:
+it minimizes impact on throughput and performance and prevents deadlocks.
 
-- Scalable
-- Distributed transactions
+As a disadvantage, optimistic locking for concurrency control in distributed transactions requires
+using other more sophisticated patterns: Sagas with Semantic Locks, Unit of Work, and Transactional Outbox.
+When your use case requires a distributed transaction, a good way to deal with the complexity of these patterns
+is to decouple them from the business layer into the reusable infrastructure layer with the
+[Ports & Adapters pattern](<https://en.wikipedia.org/wiki/Hexagonal_architecture_(software)>).
+Use already existing implementations like [eventuate.io](https://eventuate.io/)
+or make your custom implementation that is reusable across your organization.
 
 ## Note on API Idempotence
 
