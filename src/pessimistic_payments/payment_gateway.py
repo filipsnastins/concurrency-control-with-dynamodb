@@ -7,7 +7,7 @@ class PaymentGateway(Protocol):
         ...  # pragma: no cover
 
 
-@dataclass
+@dataclass(frozen=True)
 class PaymentGatewayResponse:
     id: str
     error_code: str | None = None

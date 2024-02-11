@@ -5,10 +5,10 @@ from types_aiobotocore_dynamodb.type_defs import TransactWriteItemTypeDef, Unive
 
 from optimistic_payments.events import PaymentIntentEvent
 
-from .base import BaseDTO
+from .abstract import AbstractDTO
 
 
-class PaymentIntentEventDTO(BaseDTO[PaymentIntentEvent]):
+class PaymentIntentEventDTO(AbstractDTO[PaymentIntentEvent]):
     PK: str
     SK: str
     Id: str

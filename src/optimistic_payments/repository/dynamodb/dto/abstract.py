@@ -9,17 +9,17 @@ BOTO3_DESERIALIZER = boto3.dynamodb.types.TypeDeserializer()
 BOTO3_SERIALIZER = boto3.dynamodb.types.TypeSerializer()
 
 
-AggregateType = TypeVar("AggregateType")
+EntityType = TypeVar("EntityType")
 
 
-class BaseDTO(BaseModel, Generic[AggregateType]):
+class AbstractDTO(BaseModel, abc.ABC, Generic[EntityType]):
     @classmethod
     @abc.abstractmethod
-    def from_entity(cls: type[Self], aggregate: AggregateType) -> Self:
+    def from_entity(cls: type[Self], entity: EntityType) -> Self:
         pass  # pragma: no cover
 
     @abc.abstractmethod
-    def to_entity(self) -> AggregateType:
+    def to_entity(self) -> EntityType:
         pass  # pragma: no cover
 
     @classmethod

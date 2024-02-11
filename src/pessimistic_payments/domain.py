@@ -19,7 +19,7 @@ class PaymentIntentState(StrEnum):
     CHARGE_FAILED = "CHARGE_FAILED"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Charge:
     id: str
     error_code: str | None

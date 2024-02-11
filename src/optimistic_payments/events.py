@@ -3,7 +3,7 @@ import uuid
 from dataclasses import dataclass, field
 
 
-@dataclass(kw_only=True)
+@dataclass(frozen=True, kw_only=True)
 class PaymentIntentEvent:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     name: str
@@ -14,7 +14,7 @@ class PaymentIntentEvent:
         pass  # pragma: no cover
 
 
-@dataclass(kw_only=True)
+@dataclass(frozen=True, kw_only=True)
 class PaymentIntentChargeRequested(PaymentIntentEvent):
     name: str = "PaymentIntentChargeRequested"
     amount: int
