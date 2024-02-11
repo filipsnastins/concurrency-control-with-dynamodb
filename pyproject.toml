@@ -15,7 +15,7 @@ types-aiobotocore = "^2.11.0"
 [tool.poetry.group.dev.dependencies]
 autoflake = "^2.2.1"
 bandit = "^1.7.6"
-black = "^23.12.1"
+black = "^24.1.1"
 flake8 = "^7.0.0"
 flake8-annotations = "^3.0.1"
 flake8-black = "^0.3.6"
@@ -82,7 +82,7 @@ exclude_dirs = [
 ]
 
 [tool.flake8]
-ignore = ["E501", "W503", "PT016", "ANN101"]
+ignore = ["E501", "W503", "PT016", "ANN101", "E704"]
 literal-inline-quotes = "double"
 literal-multiline-quotes = "double"
 exclude = [
