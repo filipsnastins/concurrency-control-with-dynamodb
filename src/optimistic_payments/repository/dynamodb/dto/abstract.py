@@ -12,7 +12,7 @@ BOTO3_SERIALIZER = boto3.dynamodb.types.TypeSerializer()
 EntityType = TypeVar("EntityType")
 
 
-class AbstractDTO(BaseModel, abc.ABC, Generic[EntityType]):
+class AbstractDTO(BaseModel, Generic[EntityType]):
     @classmethod
     @abc.abstractmethod
     def from_entity(cls: type[Self], entity: EntityType) -> Self:
