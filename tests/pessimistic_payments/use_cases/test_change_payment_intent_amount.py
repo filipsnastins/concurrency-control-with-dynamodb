@@ -3,14 +3,14 @@ import asyncio
 import pytest
 from pytest_mock import MockerFixture
 
-from pessimistic_payments.domain import PaymentIntentNotFoundError
+from database_locks.pessimistic_lock import PessimisticLockAcquisitionError
 from pessimistic_payments.repository import PaymentIntentRepository
 from pessimistic_payments.use_cases import change_payment_intent_amount, create_payment_intent, get_payment_intent
 
 
 @pytest.mark.asyncio()
 async def test_change_not_existing_payment_intent_amount(repo: PaymentIntentRepository) -> None:
-    with pytest.raises(PaymentIntentNotFoundError):
+    with pytest.raises(PessimisticLockAcquisitionError):
         await change_payment_intent_amount("pi_123456", 200, repo)
 
 
