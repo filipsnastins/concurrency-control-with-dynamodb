@@ -229,12 +229,6 @@ DynamoDB doesn't provide pessimistic locking out of the box, so it needs to be i
 The example implementation is in the [src/database_locks/pessimistic_lock.py](src/database_locks/pessimistic_lock.py),
 and the tests are in [tests/database_locks/test_dynamodb_pessimistic_lock.py](tests/database_locks/test_dynamodb_pessimistic_lock.py).
 
-> [!NOTE]
-> Your database might already implement pessimistic locking out of the box,
-> so you don't need to write your own implementation.
-> For example, see the [Two-Phase Lock with Relational Databases](#two-phase-lock-with-relational-databases),
-> and check your databases documentation.
-
 ```python
 from database_locks import DynamoDBPessimisticLock
 from pessimistic_payments.repository import DynamoDBPaymentIntentRepository
@@ -312,6 +306,12 @@ async def test_payment_intent_charged_once(repo: PaymentIntentRepository) -> Non
 
     payment_gw_mock.charge.assert_awaited_once()
 ```
+
+> [!NOTE]
+> Your database might already implement pessimistic locking out of the box,
+> so you don't need to write your own implementation.
+> For example, see the [Two-Phase Lock with Relational Databases](#two-phase-lock-with-relational-databases),
+> and check your databases documentation.
 
 ### Two-Phase Lock with Relational Databases
 
@@ -597,9 +597,8 @@ Read more about implementing optimistic locking in the [Resources - DynamoDB](#d
 ### Optimistic Locking with Relational Databases
 
 Optimistic locking implementation in relational databases is similar to DynamoDB -
-with a version column and a conditional check in the `UPDATE` SQL statement.
-Most Object-Relational Mappers like SQLAlchemy offer version counter implementations -
-<https://docs.sqlalchemy.org/en/20/orm/versioning.html>.
+with a version column and a conditional check in the `UPDATE` SQL statement. Most Object-Relational Mappers like
+[SQLAlchemy offer version counter implementations](https://docs.sqlalchemy.org/en/20/orm/versioning.html).
 
 The optimistic locking implementation with SQL looks like this:
 
@@ -616,8 +615,8 @@ FROM payment_intents
 WHERE id = 'pi_123456';
 COMMIT;
 
--- Optimistic concurrency control allows executing reads and writes
--- in separate database transactions if necessary.
+-- If necessary, optimistic concurrency control
+-- allows executing reads and writes in separate database transactions
 
 BEGIN;
 UPDATE payment_intents
