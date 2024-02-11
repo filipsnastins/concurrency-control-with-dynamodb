@@ -127,6 +127,8 @@ of hiding the complexity of concurrency control from the business logic code.
 This way, from the domain layer point of view, concurrency doesn't exist -
 when the code is running, it assumes it's the only running process at that time.
 It simplifies the domain layer code and makes it less cluttered with infrastructure concerns.
+When the domain layer's business objects are clustered in a [DDD Aggregate](https://martinfowler.com/bliki/DDD_Aggregate.html),
+the Aggregate becomes a concurrency control boundary.
 
 Concurrency control mechanisms add overhead to the database layer -
 additional reads, writes, and conditional checks. Therefore, the downside of encapsulating concurrency control
@@ -139,7 +141,7 @@ Another approach to concurrency control is to apply it selectively where necessa
 In some use cases, it's possible to order a system's operations and design business objects
 in a way that minimizes or eliminates concurrency conflicts. Shifting some concurrency control mechanisms
 to the domain layer can help optimize necessary parts of the application. This approach is useful
-in high-performance and low-latency systems, where additional performance overhead of traditional
+in applications where additional performance overhead of traditional
 pessimistic and optimistic concurrency control mechanisms is intolerable.
 This excellent talk about [eventual consistency](https://www.infoq.com/presentations/eventual-consistent/)
 by Susanne Braun gives many practical examples of designing systems in the context of
@@ -397,8 +399,8 @@ Bob->>Bob: Should I retry my operation?
 Optimistic locking relies on conflict detection and transaction cancellation.
 A business transaction must be atomic so that it's possible to rollback when a conflict is detected.
 An atomic transaction either succeeds or fails without leaving partial updates.
-Transaction atomicity is straightforward when a business transaction only writes to a single local database
-without modifying data in external services. Relational databases have ACID transactions,
+Transaction atomicity is straightforward when a business transaction only writes to a single database
+without modifying data in external services; relational databases have ACID transactions,
 DynamoDB supports transactions as well, or only a single DynamoDB `PutItem` operation is used.
 
 Atomicity is challenging if a business transaction modifies data in other external services.
