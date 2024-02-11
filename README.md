@@ -1,4 +1,4 @@
-# Concurrency Control and Database Locks with DynamoDB
+# Concurrency Control with DynamoDB
 
 Concurrency control ensures that concurrent operations are executed correctly and with optimal performance.
 The concurrency control mechanisms are necessary in a system that allows concurrent writes to the same resources.
@@ -12,7 +12,7 @@ will hold locks on records for a long time, impacting performance and scalabilit
 
 To prevent data corruption anomalies such as lost updates, application-level concurrency control mechanisms become mandatory.
 
-- [Concurrency Control and Database Locks with DynamoDB](#concurrency-control-and-database-locks-with-dynamodb)
+- [Concurrency Control with DynamoDB](#concurrency-control-with-dynamodb)
   - [Example Application - Payments System](#example-application---payments-system)
   - [Concurrent Operation Example - Charge and Change Amount](#concurrent-operation-example---charge-and-change-amount)
   - [Concurrency Control Mechanisms](#concurrency-control-mechanisms)
@@ -149,15 +149,6 @@ distributed systems and eventual consistency.
 
 ### Pessimistic Locking with Two-Phase Lock
 
-> [!NOTE]
-> Application code: [src/pessimistic_payments/](src/pessimistic_payments/)
->
-> Application tests: [tests/pessimistic_payments/](tests/pessimistic_payments/)
->
-> DynamoDB pessimistic lock code: [src/database_locks/](src/database_locks/)
->
-> DynamoDB pessimistic lock tests: [tests/database_locks/](tests/database_locks/)
-
 The pessimistic locking assumes that conflicts will happen and prevents them
 by acquiring a unique lock on a resource before attempting to modify it.
 The pessimistic lock is usually used in cases where conflicts are bound to happen due to high contention
@@ -224,6 +215,15 @@ sequenceDiagram
 ```
 
 ### Two-Phase Lock with DynamoDB
+
+> [!NOTE]
+> Application code: [src/pessimistic_payments/](src/pessimistic_payments/)
+>
+> Application tests: [tests/pessimistic_payments/](tests/pessimistic_payments/)
+>
+> DynamoDB pessimistic lock code: [src/database_locks/](src/database_locks/)
+>
+> DynamoDB pessimistic lock tests: [tests/database_locks/](tests/database_locks/)
 
 DynamoDB doesn't provide pessimistic locking out of the box, so it needs to be implemented manually.
 The example implementation is in the [src/database_locks/pessimistic_lock.py](src/database_locks/pessimistic_lock.py),
@@ -450,8 +450,9 @@ we'll create the "charge `PaymentIntent`" Saga consisting of two separate atomic
 1. Request the charge by applying the semantic lock that sets the `PaymentIntent` to the `CHARGE_REQUESTED` state
    and publish the `PaymentIntentChargeRequested` event as part of the Unit of Work transaction.
 
-2. Listen to the `PaymentIntentChargeRequested` event, send the charge request to the Payment Gateway,
-   and set the `PaymentIntent` state to either `CHARGED` or `CHARGE_FAILED`.
+2. Listen for the `PaymentIntentChargeRequested` event with the Transactional Outbox's Message Relay
+   (for example, with the [transaction log tailing](https://microservices.io/patterns/data/transaction-log-tailing.html)),
+   send the charge request to the Payment Gateway, and set the `PaymentIntent` state to either `CHARGED` or `CHARGE_FAILED`.
 
 ```mermaid
 ---
@@ -471,7 +472,7 @@ stateDiagram-v2
 ```
 
 The sequence diagram below simulates how optimistic concurrency control and semantic lock prevent concurrency anomalies
-and enforce `PaymentIntent` object's invariants.
+and enforce `PaymentIntent` object's invariants and business rules - the amount cannot be changed if the charge is requested.
 
 First, the user creates a new `PaymentIntent` and then sends the charge request. The charge request queries
 the created `PaymentIntent`, checks that it's in the `CREATED` state, applies the semantic lock by
@@ -484,9 +485,10 @@ which allows changing the amount. While the application issued another DynamoDB 
 the first transaction that requested the charge was committed, incrementing the optimistic lock's version number by one.
 Therefore, the second transaction that changes the amount fails because its version number (`0`)
 doesn't match with the current version stored in the database (`1`).
+
 The user can retry changing the amount, but the application will reject the request because
 the `PaymentIntent` is now in the `CHARGE_REQUESTED` state, which prevents changing the amount.
-As a result, concurrency anomalies are prevented, and `PaymentIntent` invariants are held.
+As a result, concurrency anomalies are prevented, and `PaymentIntent` invariants and business rules are enforced.
 
 ```mermaid
 sequenceDiagram
@@ -545,7 +547,8 @@ sequenceDiagram
 
 ### Optimistic Locking with DynamoDB
 
-Optimistic locking implementation in DynamoDB is based on condition expressions -
+Optimistic locking implementation in DynamoDB is based on
+[condition expressions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ConditionExpressions.html) -
 verifying that the current version number the application's request holds is still the same in the database.
 In the example below, the `update` method verifies that the current version is unchanged
 and atomically increments the version number on the item by one.
@@ -562,6 +565,7 @@ class DynamoDBPaymentIntentRepository:
                     "PK": {"S": f"PAYMENT_INTENT#{payment_intent.id}"},
                     "SK": {"S": "#PAYMENT_INTENT"},
                 },
+                # Set new version number
                 UpdateExpression="SET #State = :State, #Amount = :Amount, #Version = :NewVersion",
                 ExpressionAttributeNames={
                     "#State": "State",
@@ -571,12 +575,16 @@ class DynamoDBPaymentIntentRepository:
                 ExpressionAttributeValues={
                     ":State": {"S": payment_intent.state},
                     ":Amount": {"N": str(payment_intent.amount)},
+                    # Increment new version number by one
                     ":NewVersion": {"N": str(payment_intent.version + 1)},
+                    # Pass current version number
                     ":CurrentVersion": {"N": str(payment_intent.version)},
                 },
+                # Verify that the current version is unchanged in the database
                 ConditionExpression="attribute_exists(Id) AND #Version = :CurrentVersion",
             )
         except self._client.exceptions.TransactionCanceledException as e:
+            # Raise optimistic lock error if conditional check failed
             if e.response["CancellationReasons"][0]["Code"] == "ConditionalCheckFailed":
                 raise OptimisticLockError(payment_intent.id) from e
             raise
@@ -584,8 +592,6 @@ class DynamoDBPaymentIntentRepository:
 
 There are multiple ways of implementing optimistic locking in DynamoDB, and the exact approach depends on
 your database update operation - whether it's a simple `UpdateItem` or multiple writes wrapped in a DynamoDB transaction.
-For example, in the [optimistic_payments](src/optimistic_payments/) application example,
-the optimistic locking is implemented as a separate `Put` operation in a DynamoDB transaction.
 Read more about implementing optimistic locking in the [Resources - DynamoDB](#dynamodb) section.
 
 ### Optimistic Locking with Relational Databases
