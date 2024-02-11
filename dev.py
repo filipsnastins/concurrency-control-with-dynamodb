@@ -35,12 +35,10 @@ def test() -> None:
 
 
 def test_ci() -> None:
-    check_call(["coverage", "erase"])
     check_call(
         [
             "pytest",
             "--cov",
-            "--cov-append",
             "--cov-branch",
             "--cov-report=xml:build/coverage.xml",
             "--cov-report=html:build/htmlcov",

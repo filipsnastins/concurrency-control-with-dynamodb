@@ -1,0 +1,23 @@
+@startuml
+!include ./container/containers.puml
+
+skinparam dpi 110
+
+title Container Diagram - Payments System
+
+Person(user, "Customer")
+
+paymentGatewayAppContainer()
+
+Boundary(paymentsAppBoundary, "Payments System", "Container") {
+    paymentsAppContainer()
+    dynamoDbContainer()
+}
+
+Rel_R(user, paymentsApp, "Creates PaymentIntent, initiates charge operation, changes amount", "HTTP, JSON")
+
+Rel_R(paymentsApp, paymentGatewayApp, "Charges PaymentIntent", "HTTP, JSON")
+
+Rel_D(paymentsApp, dynamoDb, "Reads from and writes to", "aiobotocore")
+
+@enduml
