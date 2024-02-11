@@ -39,7 +39,7 @@ class PaymentIntentEventDTO(BaseDTO[PaymentIntentEvent]):
     def to_entity(self) -> PaymentIntentEvent:
         raise NotImplementedError  # pragma: no cover
 
-    def create_item_transact_request(self, table_name: str) -> TransactWriteItemTypeDef:
+    def create_item_request(self, table_name: str) -> TransactWriteItemTypeDef:
         return {
             "Put": {
                 "TableName": table_name,

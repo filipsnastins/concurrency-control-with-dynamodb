@@ -18,13 +18,13 @@ class BaseDTO(BaseModel, Generic[AggregateType]):
     def from_entity(cls: type[Self], aggregate: AggregateType) -> Self:
         pass  # pragma: no cover
 
-    @classmethod
-    def from_dynamodb_item(cls: type[Self], item: dict[str, AttributeValueTypeDef]) -> Self:
-        return cls(**{k: BOTO3_DESERIALIZER.deserialize(v) for k, v in item.items()})
-
     @abc.abstractmethod
     def to_entity(self) -> AggregateType:
         pass  # pragma: no cover
+
+    @classmethod
+    def from_dynamodb_item(cls: type[Self], item: dict[str, AttributeValueTypeDef]) -> Self:
+        return cls(**{k: BOTO3_DESERIALIZER.deserialize(v) for k, v in item.items()})
 
     def to_dynamodb_item(self) -> dict[str, AttributeValueTypeDef]:
         return {k: BOTO3_SERIALIZER.serialize(v) for k, v in self.model_dump().items()}

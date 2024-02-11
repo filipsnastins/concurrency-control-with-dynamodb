@@ -61,7 +61,9 @@ async def test_should_raise_on_already_existing_payment_intent_id(repo: DynamoDB
 
 
 @pytest.mark.asyncio()
-async def test_should_raise_on_not_existing_payment_intent_update(repo: DynamoDBPaymentIntentRepository) -> None:
+async def test_should_raise_on_not_existing_payment_intent_update_and_not_create_item(
+    repo: DynamoDBPaymentIntentRepository,
+) -> None:
     payment_intent = PaymentIntent(
         id="pi_123456",
         state=PaymentIntentState.CREATED,
@@ -73,7 +75,7 @@ async def test_should_raise_on_not_existing_payment_intent_update(repo: DynamoDB
         version=0,
     )
 
-    with pytest.raises(PaymentIntentNotFoundError, match=payment_intent.id):
+    with pytest.raises(OptimisticLockError, match=payment_intent.id):
         await repo.update(payment_intent)
 
     with pytest.raises(PaymentIntentNotFoundError, match=payment_intent.id):

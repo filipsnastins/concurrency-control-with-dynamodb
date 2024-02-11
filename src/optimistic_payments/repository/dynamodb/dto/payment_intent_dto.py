@@ -56,7 +56,7 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
             version=self.Version,
         )
 
-    def update_item_transact_request(self, table_name: str) -> TransactWriteItemTypeDef:
+    def update_item_request(self, table_name: str) -> TransactWriteItemTypeDef:
         return {
             "Update": {
                 "TableName": table_name,
@@ -64,7 +64,7 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
                     "PK": {"S": self.PK},
                     "SK": {"S": self.SK},
                 },
-                "UpdateExpression": "SET #State = :State, #Amount = :Amount, #Charge = :Charge, #Version = :Version",
+                "UpdateExpression": "SET #State = :State, #Amount = :Amount, #Charge = :Charge, #Version = :NewVersion",
                 "ExpressionAttributeNames": {
                     "#State": "State",
                     "#Amount": "Amount",
@@ -75,27 +75,12 @@ class PaymentIntentDTO(BaseDTO[PaymentIntent]):
                     ":State": {"S": self.State},
                     ":Amount": {"N": str(self.Amount)},
                     ":Charge": {"S": self.Charge} if self.Charge else {"NULL": True},
-                    ":Version": {"N": str(self.Version + 1)},
+                    ":NewVersion": {"N": str(self.Version + 1)},
+                    ":CurrentVersion": {"N": str(self.Version)},
                 },
-                "ConditionExpression": "attribute_exists(Id)",
+                "ConditionExpression": "attribute_exists(Id) AND Version = :CurrentVersion",
             }
         }
 
-    def optimistic_lock_request(self, table_name: str) -> TransactWriteItemTypeDef:
-        return {
-            "Put": {
-                "TableName": table_name,
-                "Item": {
-                    "PK": {"S": self.PK},
-                    "SK": {"S": "OPTIMISTIC_LOCK"},
-                    "Version": {"N": str(self.Version + 1)},
-                },
-                "ExpressionAttributeValues": {
-                    ":Version": {"N": str(self.Version)},
-                },
-                "ConditionExpression": "attribute_not_exists(Version) OR Version = :Version",
-            }
-        }
-
-    def add_event_transact_requests(self, table_name: str) -> list[TransactWriteItemTypeDef]:
-        return [event.create_item_transact_request(table_name) for event in self.Events]
+    def add_event_request(self, table_name: str) -> list[TransactWriteItemTypeDef]:
+        return [event.create_item_request(table_name) for event in self.Events]
