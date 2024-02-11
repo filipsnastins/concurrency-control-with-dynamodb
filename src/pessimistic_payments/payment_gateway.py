@@ -3,8 +3,9 @@ from typing import Protocol
 
 
 class PaymentGateway(Protocol):
-    async def charge(self, payment_intent_id: str, amount: int, currency: str) -> "PaymentGatewayResponse":
-        ...  # pragma: no cover
+    async def charge(
+        self, payment_intent_id: str, amount: int, currency: str
+    ) -> "PaymentGatewayResponse": ...  # pragma: no cover
 
 
 @dataclass(frozen=True)
