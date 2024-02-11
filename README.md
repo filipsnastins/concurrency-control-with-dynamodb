@@ -89,27 +89,27 @@ while only $100 was withdrawn from the user's account.
 ```mermaid
 sequenceDiagram
     actor User
-    participant PaymentIntent
+    participant PaymentSystem
     participant PaymentGateway
 
-    User->>PaymentIntent: Create PaymentIntent of $100
-    User->>PaymentIntent: Charge PaymentIntent
+    User->>PaymentSystem: Create PaymentIntent of $100
+    User->>PaymentSystem: Charge PaymentIntent
 
-    PaymentIntent->>PaymentGateway: Charge $100
+    PaymentSystem->>PaymentGateway: Charge $100
     PaymentGateway->>PaymentGateway: Processing charge...
 
-    User->>PaymentIntent: Change PaymentIntent amount to $200
-    activate PaymentIntent
-    PaymentIntent->>PaymentIntent: Verify PaymentIntent state is 'CREATED'
-    PaymentIntent->>PaymentIntent: Change amount to $200
-    deactivate PaymentIntent
+    User->>PaymentSystem: Change PaymentIntent amount to $200
+    activate PaymentSystem
+    PaymentSystem->>PaymentSystem: Verify PaymentIntent state is 'CREATED'
+    PaymentSystem->>PaymentSystem: Change amount to $200
+    deactivate PaymentSystem
 
     PaymentGateway->>PaymentGateway: Charge processed...
 
-    PaymentGateway->>PaymentIntent: Charge succeeded
-    activate PaymentIntent
-    PaymentIntent->>PaymentIntent: Update PaymentIntent state to 'CHARGED'
-    deactivate PaymentIntent
+    PaymentGateway->>PaymentSystem: Charge succeeded
+    activate PaymentSystem
+    PaymentSystem->>PaymentSystem: Update PaymentIntent state to 'CHARGED'
+    deactivate PaymentSystem
 ```
 
 ## Concurrency Control Mechanisms
@@ -186,32 +186,32 @@ The "change `PaymentIntent` amount" request failed because it could not acquire 
 ```mermaid
 sequenceDiagram
     actor User
-    participant PaymentIntent
+    participant PaymentSystem
     participant PaymentGateway
 
-    User->>PaymentIntent: Create PaymentIntent of $100
+    User->>PaymentSystem: Create PaymentIntent of $100
 
-    User->>PaymentIntent: Charge PaymentIntent
-    activate PaymentIntent
-    PaymentIntent->>PaymentIntent: Acquire lock on PaymentIntent
-    PaymentIntent->>PaymentGateway: Charge $100
-    deactivate PaymentIntent
+    User->>PaymentSystem: Charge PaymentIntent
+    activate PaymentSystem
+    PaymentSystem->>PaymentSystem: Acquire lock on PaymentIntent
+    PaymentSystem->>PaymentGateway: Charge $100
+    deactivate PaymentSystem
 
     PaymentGateway->>PaymentGateway: Processing charge...
 
-    User->>PaymentIntent: Change PaymentIntent amount to $200
-    activate PaymentIntent
-    PaymentIntent->>PaymentIntent: Lock already acquired error
-    PaymentIntent->>User: PaymentIntent amount cannot be changed at the moment, try again later
-    deactivate PaymentIntent
+    User->>PaymentSystem: Change PaymentIntent amount to $200
+    activate PaymentSystem
+    PaymentSystem->>PaymentSystem: Lock already acquired error
+    PaymentSystem->>User: PaymentIntent amount cannot be changed at the moment, try again later
+    deactivate PaymentSystem
 
     PaymentGateway->>PaymentGateway: Charge processed...
 
-    PaymentGateway->>PaymentIntent: Charge succeeded
-    activate PaymentIntent
-    PaymentIntent->>PaymentIntent: Update PaymentIntent state to 'CHARGED'
-    PaymentIntent->>PaymentIntent: Release lock
-    deactivate PaymentIntent
+    PaymentGateway->>PaymentSystem: Charge succeeded
+    activate PaymentSystem
+    PaymentSystem->>PaymentSystem: Update PaymentIntent state to 'CHARGED'
+    PaymentSystem->>PaymentSystem: Release lock
+    deactivate PaymentSystem
 ```
 
 ### Two-Phase Lock with DynamoDB
@@ -493,56 +493,56 @@ As a result, concurrency anomalies are prevented, and `PaymentIntent` invariants
 ```mermaid
 sequenceDiagram
     actor User
-    participant PaymentIntent
+    participant PaymentSystem
     participant DynamoDB
 
-    User->>PaymentIntent: Create PaymentIntent of $100
-    activate PaymentIntent
-    PaymentIntent->>DynamoDB: Save PaymentIntent (set new version = 0)
-    DynamoDB->>PaymentIntent: Saved (state = 'CREATED', version = 0)
-    PaymentIntent->>User: PaymentIntent created
-    deactivate PaymentIntent
+    User->>PaymentSystem: Create PaymentIntent of $100
+    activate PaymentSystem
+    PaymentSystem->>DynamoDB: Save PaymentIntent (set new version = 0)
+    DynamoDB->>PaymentSystem: Saved (state = 'CREATED', version = 0)
+    PaymentSystem->>User: PaymentIntent created
+    deactivate PaymentSystem
 
-    User->>PaymentIntent: Charge PaymentIntent
-    activate PaymentIntent
-    PaymentIntent->>DynamoDB: Get PaymentIntent
-    DynamoDB->>PaymentIntent: Get PaymentIntent (state = 'CREATED', version = 0)
+    User->>PaymentSystem: Charge PaymentIntent
+    activate PaymentSystem
+    PaymentSystem->>DynamoDB: Get PaymentIntent
+    DynamoDB->>PaymentSystem: Get PaymentIntent (state = 'CREATED', version = 0)
 
-    PaymentIntent->>PaymentIntent: Transaction: update state to 'CHARGE_REQUESTED'
-    PaymentIntent->>PaymentIntent: Transaction: create PaymentIntentChargeRequested event
-    PaymentIntent->>DynamoDB: Commit 'charge PaymentIntent' (check current version == 0, set new version = 1)
+    PaymentSystem->>PaymentSystem: Transaction: update state to 'CHARGE_REQUESTED'
+    PaymentSystem->>PaymentSystem: Transaction: create PaymentIntentChargeRequested event
+    PaymentSystem->>DynamoDB: Commit 'charge PaymentIntent' (check current version == 0, set new version = 1)
 
-    User->>PaymentIntent: Change PaymentIntent amount to $200
-    activate PaymentIntent
+    User->>PaymentSystem: Change PaymentIntent amount to $200
+    activate PaymentSystem
 
     DynamoDB->>DynamoDB: Committing 'charge PaymentIntent'...
 
-    PaymentIntent->>DynamoDB: Get PaymentIntent
-    DynamoDB->>PaymentIntent: Get PaymentIntent (state = 'CREATED', version = 0)
-    PaymentIntent->>PaymentIntent: Transaction: update amount to $200
-    deactivate PaymentIntent
+    PaymentSystem->>DynamoDB: Get PaymentIntent
+    DynamoDB->>PaymentSystem: Get PaymentIntent (state = 'CREATED', version = 0)
+    PaymentSystem->>PaymentSystem: Transaction: update amount to $200
+    deactivate PaymentSystem
 
-    DynamoDB->>PaymentIntent: Committed 'charge PaymentIntent' (current version = 1)
-    PaymentIntent->>User: PaymentIntent charge requested
+    DynamoDB->>PaymentSystem: Committed 'charge PaymentIntent' (current version = 1)
+    PaymentSystem->>User: PaymentIntent charge requested
 
-    activate PaymentIntent
-    PaymentIntent->>DynamoDB: Commit 'change PaymentIntent amount' (check version == 0, new version = 1)
+    activate PaymentSystem
+    PaymentSystem->>DynamoDB: Commit 'change PaymentIntent amount' (check version == 0, new version = 1)
 
     DynamoDB->>DynamoDB: Committing 'change PaymentIntent amount'...
-    DynamoDB->>PaymentIntent: Failed to commit 'change PaymentIntent amount' (current version != 0)
+    DynamoDB->>PaymentSystem: Failed to commit 'change PaymentIntent amount' (current version != 0)
 
-    PaymentIntent->>User: Couldn't change PaymentIntent amount due to write conflict
-    deactivate PaymentIntent
-    deactivate PaymentIntent
+    PaymentSystem->>User: Couldn't change PaymentIntent amount due to write conflict
+    deactivate PaymentSystem
+    deactivate PaymentSystem
 
     User->>User: Retrying...
-    User->>PaymentIntent: Change PaymentIntent amount to $200
+    User->>PaymentSystem: Change PaymentIntent amount to $200
 
-    activate PaymentIntent
-    PaymentIntent->>DynamoDB: Get PaymentIntent
-    DynamoDB->>PaymentIntent: Get PaymentIntent (state = 'CHARGE_REQUESTED', version = 1)
-    PaymentIntent->>User: Cannot change PaymentIntent amount in state 'CHARGE_REQUESTED'
-    deactivate PaymentIntent
+    activate PaymentSystem
+    PaymentSystem->>DynamoDB: Get PaymentIntent
+    DynamoDB->>PaymentSystem: Get PaymentIntent (state = 'CHARGE_REQUESTED', version = 1)
+    PaymentSystem->>User: Cannot change PaymentIntent amount in state 'CHARGE_REQUESTED'
+    deactivate PaymentSystem
 ```
 
 ### Optimistic Locking with DynamoDB
@@ -642,12 +642,97 @@ using other more sophisticated patterns: Sagas with Semantic Locks, Unit of Work
 When your use case requires a distributed transaction, a good way to deal with the complexity of these patterns
 is to decouple them from the business layer into the reusable infrastructure layer with the
 [Ports & Adapters pattern](<https://en.wikipedia.org/wiki/Hexagonal_architecture_(software)>).
-Use already existing implementations like [eventuate.io](https://eventuate.io/)
-or make your custom implementation that is reusable across your organization.
+To implement the patterns, use existing libraries like [eventuate.io](https://eventuate.io/)
+or make your custom implementation reusable across your organization.
 
 ## Note on API Idempotence
 
-TODO ensuring that Payment Gateway's charge API is idempotent to enable safe retries.
+Apart from concurrency control, another important API design aspect is [idempotence](https://stripe.com/blog/idempotency).
+An API is idempotent if it can be invoked multiple times without different outcomes.
+For example, the Payment Gateway's charge API is idempotent if executed multiple times with the same parameters, but the user is charged only once.
+Idempotence is a critical system design property for ensuring reliability and good user experience.
+However, why would the charge API ever be invoked multiple times?
+In short, because [networks are unreliable, and applications fail](https://en.wikipedia.org/wiki/Fallacies_of_distributed_computing).
+
+Let's explore an example scenario. When the user initiates the charge operation,
+the Payments System forwards a request to the Payment Gateway, which successfully withdraws money from the user's account.
+When sending back the successful charge response, a network failure occurs,
+and the Payments System doesn't receive back the charge result during an expected time window.
+
+The Payments System doesn't know if the charge succeeded or failed, so it can only retry the charge request to the Payment Gateway.
+If the Payment Gateway's charge API is not idempotent, the charge retry will withdraw money from the user's bank account twice,
+resulting in a bad user experience.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant PaymentSystem
+    participant PaymentGateway
+
+    User->>PaymentSystem: Charge PaymentIntent
+
+    PaymentSystem->>PaymentGateway: Request charge
+    activate PaymentGateway
+    PaymentGateway->>PaymentGateway: Money received
+    PaymentGateway->>PaymentGateway: Creating response...
+    deactivate PaymentGateway
+
+    PaymentGateway--xPaymentSystem: Network failure, response not delivered
+
+    PaymentSystem->>PaymentSystem: No response, retrying...
+    PaymentSystem->>PaymentGateway: Request charge
+    activate PaymentGateway
+    PaymentGateway->>PaymentGateway: Money received
+    PaymentGateway->>PaymentGateway: Creating response...
+    deactivate PaymentGateway
+
+    PaymentGateway->>PaymentSystem: Charged
+    PaymentSystem->>User: Charged
+
+    User->>User: Bank account charged twice 😢 💸
+```
+
+To prevent the double charge, Payment Gateway charge API must be idempotent.
+A common idempotence implementation uses idempotence keys - in a request, a client sends an idempotence key
+that uniquely identifies the request. If the request is sent again with the same idempotence key,
+the Payment Gateway will return the same response, but won't charge the user twice.
+The client, the Payments System, must ensure that the idempotence keys it sends are unique.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant PaymentSystem
+    participant PaymentGateway
+
+    User->>PaymentSystem: Charge PaymentIntent
+    activate PaymentSystem
+    PaymentSystem->>PaymentSystem: Generate unique Idempotency-Key
+    PaymentSystem->>PaymentGateway: Request charge. Idempotency-Key: AGJ6FJMkGQIpHUTX
+    deactivate PaymentSystem
+
+
+    activate PaymentGateway
+    PaymentGateway->>PaymentGateway: Money received
+    PaymentGateway->>PaymentGateway: Creating response...
+    PaymentGateway--xPaymentSystem: Network failure, response not delivered
+    deactivate PaymentGateway
+
+    PaymentSystem->>PaymentSystem: No response, retrying...
+    PaymentSystem->>PaymentGateway: Request charge. Idempotency-Key: AGJ6FJMkGQIpHUTX
+
+    activate PaymentGateway
+    PaymentGateway->>PaymentGateway: Already charged with this Idempotency-Key
+    PaymentGateway->>PaymentGateway: Returning the previous response
+    PaymentGateway->>PaymentSystem: Charged
+    deactivate PaymentGateway
+    PaymentSystem->>PaymentSystem: Idempotency-Key: AGJ6FJMkGQIpHUTX processed
+
+    PaymentSystem->>User: Charged
+```
+
+Apart from using client-side idempotence keys, an API can implement idempotence by assembling
+an idempotence key on the server side from the values received in the request.
+Read more about API idempotence in the [Resources - API Idempotence](#api-idempotence) section.
 
 ## Resources
 
@@ -692,6 +777,8 @@ TODO ensuring that Payment Gateway's charge API is idempotent to enable safe ret
 
 ### API Idempotence
 
-- Article: [Designing robust and predictable APIs with idempotency](https://stripe.com/blog/idempotency)
+- Article: [Stripe: Designing robust and predictable APIs with idempotency](https://stripe.com/blog/idempotency)
 
 - Article: [Your Lambda function might execute twice. Be prepared!](https://cloudonaut.io/your-lambda-function-might-execute-twice-deal-with-it/)
+
+- Article: [Fallacies of distributed computing](https://en.wikipedia.org/wiki/Fallacies_of_distributed_computing)
