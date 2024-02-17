@@ -35,7 +35,7 @@ class DynamoDBPaymentIntentRepository:
             await self._client.transact_write_items(
                 TransactItems=[
                     payment_intent_dto.update_item_request(self._table_name),
-                    *payment_intent_dto.add_event_requests(self._table_name),
+                    *payment_intent_dto.add_event_item_requests(self._table_name),
                 ]
             )
         except self._client.exceptions.TransactionCanceledException as e:

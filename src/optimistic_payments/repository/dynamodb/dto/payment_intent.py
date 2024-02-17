@@ -7,7 +7,7 @@ from types_aiobotocore_dynamodb.type_defs import TransactWriteItemTypeDef, Unive
 from optimistic_payments.domain import Charge, PaymentIntent, PaymentIntentState
 
 from .abstract import AbstractDTO
-from .payment_intent_event_dto import PaymentIntentEventDTO
+from .payment_intent_event import PaymentIntentEventDTO
 
 
 class PaymentIntentDTO(AbstractDTO[PaymentIntent]):
@@ -82,5 +82,5 @@ class PaymentIntentDTO(AbstractDTO[PaymentIntent]):
             }
         }
 
-    def add_event_requests(self, table_name: str) -> list[TransactWriteItemTypeDef]:
+    def add_event_item_requests(self, table_name: str) -> list[TransactWriteItemTypeDef]:
         return [event.create_item_request(table_name) for event in self.Events]
