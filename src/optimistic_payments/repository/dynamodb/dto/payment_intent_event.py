@@ -13,8 +13,6 @@ class PaymentIntentEventDTO(AbstractDTO[PaymentIntentEvent]):
     SK: str
     Id: str
     Name: str
-    AggregateId: str
-    AggregateName: str
     Payload: str
 
     @staticmethod
@@ -31,8 +29,6 @@ class PaymentIntentEventDTO(AbstractDTO[PaymentIntentEvent]):
             SK=f"EVENT#{event.id}",
             Id=event.id,
             Name=event.name,
-            AggregateId=event.payment_intent_id,
-            AggregateName="PaymentIntent",
             Payload=json.dumps(event.to_dict()),
         )
 
