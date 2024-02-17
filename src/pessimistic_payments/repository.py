@@ -45,19 +45,18 @@ class DynamoDBPaymentIntentRepository:
                 "PK": {"S": f"PAYMENT_INTENT#{payment_intent_id}"},
                 "SK": {"S": "#PAYMENT_INTENT"},
             },
-            ConsistentRead=True,
+            ConsistentRead=True,  # Consistent read is required when using two-phase locking for concurrency control
         )
-        item = response.get("Item")
-        if item is None:
-            raise PaymentIntentNotFoundError(payment_intent_id)
-        return PaymentIntent(
-            id=item["Id"]["S"],
-            state=PaymentIntentState(item["State"]["S"]),
-            customer_id=item["CustomerId"]["S"],
-            amount=int(item["Amount"]["N"]),
-            currency=item["Currency"]["S"],
-            charge=Charge(**charge_item) if (charge_item := json.loads(item["Charge"]["S"])) else None,
-        )
+        if item := response.get("Item"):
+            return PaymentIntent(
+                id=item["Id"]["S"],
+                state=PaymentIntentState(item["State"]["S"]),
+                customer_id=item["CustomerId"]["S"],
+                amount=int(item["Amount"]["N"]),
+                currency=item["Currency"]["S"],
+                charge=Charge(**charge_item) if (charge_item := json.loads(item["Charge"]["S"])) else None,
+            )
+        raise PaymentIntentNotFoundError(payment_intent_id)
 
     async def create(self, payment_intent: PaymentIntent) -> None:
         await self._client.put_item(

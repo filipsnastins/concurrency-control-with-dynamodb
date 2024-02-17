@@ -16,10 +16,9 @@ class DynamoDBPaymentIntentRepository:
             TableName=self._table_name,
             Key=PaymentIntentDTO.key(payment_intent_id),
         )
-        item = response.get("Item")
-        if item is None:
-            raise PaymentIntentNotFoundError(payment_intent_id)
-        return PaymentIntentDTO.from_dynamodb_item(item).to_entity()
+        if item := response.get("Item"):
+            return PaymentIntentDTO.from_dynamodb_item(item).to_entity()
+        raise PaymentIntentNotFoundError(payment_intent_id)
 
     async def create(self, payment_intent: PaymentIntent) -> None:
         await self._client.put_item(
@@ -47,7 +46,6 @@ class DynamoDBPaymentIntentRepository:
             TableName=self._table_name,
             Key=PaymentIntentEventDTO.key(payment_intent_id, event_id),
         )
-        item = response.get("Item")
-        if item is None:
-            return None
-        return PaymentIntentEventDTO.from_dynamodb_item(item)
+        if item := response.get("Item"):
+            return PaymentIntentEventDTO.from_dynamodb_item(item)
+        return None
