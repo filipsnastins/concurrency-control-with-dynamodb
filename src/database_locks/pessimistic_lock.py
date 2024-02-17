@@ -50,7 +50,7 @@ class DynamoDBPessimisticLock:
                 ExpressionAttributeNames={"#LockAttribute": self._lock_attribute},
                 ExpressionAttributeValues={
                     ":LockAttribute": {"S": now().isoformat()},
-                    **self._lock_timeout_attribute_value(),
+                    **self._lock_expires_at_attribute_value(),
                 },
                 ConditionExpression=f"{self._item_exists_expression(key)} AND {self._lock_not_acquired_expression()}",
             )
@@ -72,7 +72,7 @@ class DynamoDBPessimisticLock:
     def _item_exists_expression(self, key: dict[str, UniversalAttributeValueTypeDef]) -> str:
         return " AND ".join(f"attribute_exists({v})" for v in key.keys()).removesuffix(" AND ")
 
-    def _lock_timeout_attribute_value(self) -> dict:
+    def _lock_expires_at_attribute_value(self) -> dict:
         if not self._lock_timeout:
             return {}
         return {":LockExpiresAt": {"S": (now() - self._lock_timeout).isoformat()}}
