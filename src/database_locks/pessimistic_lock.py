@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 from types_aiobotocore_dynamodb import DynamoDBClient
 from types_aiobotocore_dynamodb.type_defs import UniversalAttributeValueTypeDef
 
-from . import time
+from .time import now
 
 
 class PessimisticLockAcquisitionError(Exception):
@@ -49,7 +49,7 @@ class DynamoDBPessimisticLock:
                 UpdateExpression="SET #LockAttribute = :LockAttribute",
                 ExpressionAttributeNames={"#LockAttribute": self._lock_attribute},
                 ExpressionAttributeValues={
-                    ":LockAttribute": {"S": time.now().isoformat()},
+                    ":LockAttribute": {"S": now().isoformat()},
                     **self._lock_timeout_attribute_value(),
                 },
                 ConditionExpression=f"{self._item_exists_expression(key)} AND {self._lock_not_acquired_expression()}",
@@ -75,7 +75,7 @@ class DynamoDBPessimisticLock:
     def _lock_timeout_attribute_value(self) -> dict:
         if not self._lock_timeout:
             return {}
-        return {":LockExpiresAt": {"S": (time.now() - self._lock_timeout).isoformat()}}
+        return {":LockExpiresAt": {"S": (now() - self._lock_timeout).isoformat()}}
 
     def _lock_not_acquired_expression(self) -> str:
         if not self._lock_timeout:

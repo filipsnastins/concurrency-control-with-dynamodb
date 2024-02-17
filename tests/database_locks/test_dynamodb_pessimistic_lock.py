@@ -12,7 +12,7 @@ from database_locks import DynamoDBPessimisticLock, PessimisticLockAcquisitionEr
 
 def mock_time_now(mocker: MockerFixture, now: str) -> None:
     return_value = datetime.datetime.fromisoformat(now).replace(tzinfo=datetime.UTC)
-    mocker.patch("database_locks.pessimistic_lock.time.now", return_value=return_value)
+    mocker.patch("database_locks.pessimistic_lock.now", return_value=return_value)
 
 
 def generate_dynamodb_item_key(*, with_range_key: bool = True) -> dict:
