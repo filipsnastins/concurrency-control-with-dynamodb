@@ -16,7 +16,7 @@ To prevent data corruption anomalies such as lost updates, application-level con
   - [Example Application - Payments System](#example-application---payments-system)
   - [Concurrent Operation Example - Charge and Change Amount](#concurrent-operation-example---charge-and-change-amount)
   - [Concurrency Control Mechanisms](#concurrency-control-mechanisms)
-    - [Pessimistic Locking with Two-Phase Lock](#pessimistic-locking-with-two-phase-lock)
+  - [Pessimistic Locking with Two-Phase Lock](#pessimistic-locking-with-two-phase-lock)
     - [Two-Phase Lock with DynamoDB](#two-phase-lock-with-dynamodb)
     - [Two-Phase Lock with Relational Databases](#two-phase-lock-with-relational-databases)
     - [Advantages and Disadvantages of Pessimistic Locking](#advantages-and-disadvantages-of-pessimistic-locking)
@@ -147,7 +147,7 @@ This excellent talk about [eventual consistency](https://www.infoq.com/presentat
 by Susanne Braun gives many practical examples of designing systems in the context of
 distributed systems and eventual consistency.
 
-### Pessimistic Locking with Two-Phase Lock
+## Pessimistic Locking with Two-Phase Lock
 
 The pessimistic locking assumes that conflicts will happen and prevents them
 by acquiring a unique lock on a resource before attempting to modify it.
